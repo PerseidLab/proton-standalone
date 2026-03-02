@@ -10,58 +10,58 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Install dependencies
-      run: sudo apt-get update && sudo apt-get install -y libfuse2 curl jq tar gzip xz-utils imagemagick
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libfuse2 curl jq tar gzip xz-utils imagemagick
 
-    - name: Fetch latest GE-Proton release info
-      id: geproton
-      run: |
-        GE_PROTON_API="https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
-        response=$(curl -s $GE_PROTON_API)
-        tag_name=$(echo "$response" | jq -r '.tag_name')
-        echo "tag=$tag_name" >> $GITHUB_OUTPUT
+      - name: Fetch latest GE-Proton release info
+        id: geproton
+        run: |
+          GE_PROTON_API="https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
+          response=$(curl -s $GE_PROTON_API)
+          tag_name=$(echo "$response" | jq -r '.tag_name')
+          echo "tag=$tag_name" >> $GITHUB_OUTPUT
 
-    - name: Download latest GE-Proton release archive
-      id: download
-      run: |
-        TAG=${{ steps.geproton.outputs.tag }}
-        ASSET_URL=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/tags/$TAG \
-          | jq -r '.assets[] | select(.name | test("GE-Proton.*\\.(tar\\.gz|tar\\.xz)")) | .browser_download_url')
-        if [[ -z "$ASSET_URL" ]]; then
-          echo "Error: Could not find a tar.gz or tar.xz asset for $TAG"
-          exit 1
-        fi
-        curl -L -o ge-proton.tar "$ASSET_URL"
-        echo "asset_url=$ASSET_URL" >> $GITHUB_OUTPUT
+      - name: Download latest GE-Proton release archive
+        id: download
+        run: |
+          TAG=${{ steps.geproton.outputs.tag }}
+          ASSET_URL=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/tags/$TAG \
+            | jq -r '.assets[] | select(.name | test("GE-Proton.*\\.(tar\\.gz|tar\\.xz)")) | .browser_download_url')
+          if [[ -z "$ASSET_URL" ]]; then
+            echo "Error: Could not find a tar.gz or tar.xz asset for $TAG"
+            exit 1
+          fi
+          curl -L -o ge-proton.tar "$ASSET_URL"
+          echo "asset_url=$ASSET_URL" >> $GITHUB_OUTPUT
 
-    - name: Extract GE-Proton into AppDir
-      run: |
-        rm -rf ./AppDir/opt/GE-Proton
-        mkdir -p ./AppDir/opt
-        ASSET_URL=${{ steps.download.outputs.asset_url }}
-        if [[ "$ASSET_URL" == *.tar.gz ]]; then
-          tar -xzf ge-proton.tar -C ./AppDir/opt
-        elif [[ "$ASSET_URL" == *.tar.xz ]]; then
-          tar -xJf ge-proton.tar -C ./AppDir/opt
-        else
-          echo "Unknown archive format: $ASSET_URL"
-          exit 1
-        fi
-        EXTRACTED_DIR=$(ls ./AppDir/opt | head -n1)
-        mv "./AppDir/opt/$EXTRACTED_DIR" ./AppDir/opt/GE-Proton
+      - name: Extract GE-Proton into AppDir
+        run: |
+          rm -rf ./AppDir/opt/GE-Proton
+          mkdir -p ./AppDir/opt
+          ASSET_URL=${{ steps.download.outputs.asset_url }}
+          if [[ "$ASSET_URL" == *.tar.gz ]]; then
+            tar -xzf ge-proton.tar -C ./AppDir/opt
+          elif [[ "$ASSET_URL" == *.tar.xz ]]; then
+            tar -xJf ge-proton.tar -C ./AppDir/opt
+          else
+            echo "Unknown archive format: $ASSET_URL"
+            exit 1
+          fi
+          EXTRACTED_DIR=$(ls ./AppDir/opt | head -n1)
+          mv "./AppDir/opt/$EXTRACTED_DIR" ./AppDir/opt/GE-Proton
 
-    - name: Add placeholder Wine icon
-      run: |
-        mkdir -p AppDir
-        curl -L -o AppDir/wine.png https://raw.githubusercontent.com/wine-mirror/wine/master/dlls/wine/wine.png
+      - name: Add placeholder Wine icon
+        run: |
+          mkdir -p AppDir
+          curl -L -o AppDir/wine.png https://raw.githubusercontent.com/wine-mirror/wine/master/dlls/wine/wine.png
 
-    - name: Add .desktop file
-      run: |
-        mkdir -p AppDir
-        cat > AppDir/portable-proton.desktop <<EOF
+      - name: Add .desktop file
+        run: |
+          mkdir -p AppDir
+          cat > AppDir/portable-proton.desktop <<EOF
 [Desktop Entry]
 Type=Application
 Name=Portable Proton
@@ -70,31 +70,31 @@ Icon=wine
 Categories=Utility;
 EOF
 
-    - name: Download appimagetool
-      run: |
-        curl -LO https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
-        chmod +x appimagetool-x86_64.AppImage
+      - name: Download appimagetool
+        run: |
+          curl -LO https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
 
-    - name: Build AppImage
-      run: ARCH=x86_64 ./appimagetool-x86_64.AppImage ./AppDir
+      - name: Build AppImage
+        run: ARCH=x86_64 ./appimagetool-x86_64.AppImage ./AppDir
 
-    - name: Rename AppImage with version
-      run: |
-        TAG=${{ steps.geproton.outputs.tag }}
-        VERSION="${TAG#GE-Proton}"
-        VERSION="${VERSION//-/.}"
-        NEW_NAME="ge-proton-${VERSION}-standalone.AppImage"
-        GENERATED=$(ls ./AppDir-*.AppImage | head -n1)
-        if [[ -z "$GENERATED" ]]; then
-          echo "Error: AppImage not found!"
-          exit 1
-        fi
-        mv "$GENERATED" "./${NEW_NAME}"
-        echo "AppImage renamed to $NEW_NAME"
+      - name: Rename AppImage with version
+        run: |
+          TAG=${{ steps.geproton.outputs.tag }}
+          VERSION="${TAG#GE-Proton}"
+          VERSION="${VERSION//-/.}"
+          NEW_NAME="ge-proton-${VERSION}-standalone.AppImage"
+          GENERATED=$(ls ./AppDir-*.AppImage | head -n1)
+          if [[ -z "$GENERATED" ]]; then
+            echo "Error: AppImage not found!"
+            exit 1
+          fi
+          mv "$GENERATED" "./${NEW_NAME}"
+          echo "AppImage renamed to $NEW_NAME"
 
-    - name: Upload Release Asset (optional)
-      uses: softprops/action-gh-release@v1
-      with:
-        files: "./ge-proton-*-standalone.AppImage"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Release Asset (optional)
+        uses: softprops/action-gh-release@v1
+        with:
+          files: "./ge-proton-*-standalone.AppImage"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
