@@ -7,7 +7,6 @@ APPIMAGE_DIR="$(dirname "$APPIMAGE_PATH")"
 APPS_DIR="$HOME/.local/share/applications"
 
 # --- 2. Installation / Uninstallation Logic ---
-# We check these BEFORE setting any default arguments
 if [[ "$1" == "--install" ]]; then
     mkdir -p "$APPS_DIR"
     echo "Installing desktop shortcuts and MIME types..."
@@ -71,10 +70,18 @@ elif [[ "$1" == "--uninstall" ]]; then
 fi
 
 # --- 3. Default Argument Logic ---
-# If NO argument is provided, default to "explorer"
-# If an argument IS provided (like a file path or "winecfg"), we keep it.
 if [ -z "$1" ]; then
     set -- "explorer"
+fi
+
+# --- NEW: Path Resolution Logic ---
+# If the first argument is a file (or a link to a file), resolve its real path.
+if [ -f "$1" ]; then
+    REAL_PATH=$(readlink -f "$1")
+    # Shift the old path out and set the real path as the first argument
+    shift
+    set -- "$REAL_PATH" "$@"
+    echo "Resolved shortcut/link to: $REAL_PATH"
 fi
 
 # 4. Define Prefix Path
@@ -108,40 +115,23 @@ if [ ! -d "$PROTON_PREFIX/pfx" ]; then
     mkdir -p "$PROTON_PREFIX/pfx"
 fi
 
+# Use Wine directly or via Python script as before
+WINE_WOW64="$INTERNAL_PROTON_BASE/files/bin-wow64/wine"
+WINE_64="$INTERNAL_PROTON_BASE/files/bin/wine64"
+WINE_STD="$INTERNAL_PROTON_BASE/files/bin/wine"
+
 if [ ! -f "$PROTON_PREFIX/tracked_files" ]; then
     echo "First run or prefix incomplete. Launching Proton..."
-
     if [ -f "$INTERNAL_PROTON_SCRIPT" ]; then
         python3 "$INTERNAL_PROTON_SCRIPT" run winecfg
-
-        echo "Proton session closed. Launching Wine fallback..."
-        WINE_WOW64="$INTERNAL_PROTON_BASE/files/bin-wow64/wine"
-        WINE_64="$INTERNAL_PROTON_BASE/files/bin/wine64"
-        WINE_STD="$INTERNAL_PROTON_BASE/files/bin/wine"
-
-        if [ -f "$WINE_WOW64" ]; then
-            exec "$WINE_WOW64" "$@"
-        elif [ -f "$WINE_64" ]; then
-            exec "$WINE_64" "$@"
-        else
-            exec "$WINE_STD" "$@"
-        fi
-    else
-        echo "Error: Proton script not found at $INTERNAL_PROTON_SCRIPT"
-        exit 1
     fi
+fi
+
+echo "Launching Wine..."
+if [ -f "$WINE_WOW64" ]; then
+    exec "$WINE_WOW64" "$@"
+elif [ -f "$WINE_64" ]; then
+    exec "$WINE_64" "$@"
 else
-    echo "Prefix exists. Launching Wine directly..."
-
-    WINE_WOW64="$INTERNAL_PROTON_BASE/files/bin-wow64/wine"
-    WINE_64="$INTERNAL_PROTON_BASE/files/bin/wine64"
-    WINE_STD="$INTERNAL_PROTON_BASE/files/bin/wine"
-
-    if [ -f "$WINE_WOW64" ]; then
-        exec "$WINE_WOW64" "$@"
-    elif [ -f "$WINE_64" ]; then
-        exec "$WINE_64" "$@"
-    else
-        exec "$WINE_STD" "$@"
-    fi
+    exec "$WINE_STD" "$@"
 fi
