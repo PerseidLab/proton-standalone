@@ -1,8 +1,6 @@
 #!/bin/bash
 
-# --- 1. PATH & MOUNT DETECTION ---
-# $APPDIR: Internal temporary mount point
-# $APPIMAGE: Path to the .AppImage file on disk
+# --- 1. PATH DETECTION ---
 if [[ -n "$APPDIR" ]]; then
     MOUNT_DIR="$APPDIR"
     APP_FILE_PATH="$APPIMAGE"
@@ -13,81 +11,70 @@ else
     BASE_DIR="$MOUNT_DIR"
 fi
 
-# Internal path to Proton (Inside AppImage)
 PROTON_PATH="$MOUNT_DIR/opt/GE-Proton"
-# External path for game data (Next to AppImage)
 PREFIX_PATH="$BASE_DIR/sharedprotonprefix"
+mkdir -p "$PREFIX_PATH"
 
 # --- 2. INSTALLATION / UNINSTALLATION ---
-DESKTOP_DIR="$HOME/.local/share/applications"
-MAIN_DESKTOP="run-proton.desktop"
-
-if [[ "$1" == "--uninstall" ]]; then
-    echo "Removing desktop integration..."
-    rm -f "$DESKTOP_DIR/$MAIN_DESKTOP"
-    update-desktop-database "$DESKTOP_DIR"
-    exit 0
-fi
-
 if [[ "$1" == "--install" ]]; then
-    echo "Installing desktop shortcut..."
+    DESKTOP_DIR="$HOME/.local/share/applications"
     mkdir -p "$DESKTOP_DIR"
-    cat <<EOF > "$DESKTOP_DIR/$MAIN_DESKTOP"
+    cat <<EOF > "$DESKTOP_DIR/proton-runner.desktop"
 [Desktop Entry]
 Type=Application
-Name=Proton Runner (Native)
+Name=Proton Runner
 Exec="$APP_FILE_PATH" %f
 Icon=steam
-Terminal=false
 Categories=Utility;
-MimeType=application/x-ms-dos-executable;application/x-msdownload;application/x-executable;
+MimeType=application/x-ms-dos-executable;
 EOF
-    chmod +x "$DESKTOP_DIR/$MAIN_DESKTOP"
     update-desktop-database "$DESKTOP_DIR"
-    echo "Done! You can now use 'Open With' on .exe files."
+    echo "Installed."
     exit 0
 fi
 
-# --- 3. ARGUMENT & PATH HANDLING ---
-# This ensures that if you pass a file, Proton finds the REAL path, not the mount path.
+# --- 3. ARGUMENT CAPTURING (The Fix) ---
+# We use a dedicated array to ensure we don't pass empty strings
+FINAL_ARGS=()
+
 if [ -z "$1" ]; then
-    SET_ARGS=("explorer")
+    # Default behavior if launched with no args
+    FINAL_ARGS=("explorer")
 else
+    # Check if first arg is a file
     if [ -f "$1" ]; then
-        # Handle file paths correctly for the Wine prefix
         ABS_EXE=$(realpath "$1")
-        EXE_DIR=$(dirname "$ABS_EXE")
+        cd "$(dirname "$ABS_EXE")" || exit
         shift
-        SET_ARGS=("run" "$ABS_EXE" "$@")
-        cd "$EXE_DIR" || exit
+        # Rebuild the array with absolute path + remaining flags
+        FINAL_ARGS=("$ABS_EXE" "$@")
     else
-        # Handle manual commands like 'winecfg' or 'reboot'
-        SET_ARGS=("run" "${@}")
+        # If it's just a command like 'explorer' or 'winecfg'
+        FINAL_ARGS=("${@}")
     fi
 fi
 
 # --- 4. ENVIRONMENT SETUP ---
-# Essential Proton variables
-export STEAM_COMPAT_CLIENT_INSTALL_PATH="$HOME/.steam/steam"
-export STEAM_COMPAT_DATA_PATH="$PREFIX_PATH"
-export PROTON_NO_STEAM=1
-export PROTON_USE_WOW64=1
-
-# CRITICAL: We MUST unset the AppImage's internal library paths.
-# If we don't, Proton will try to use the AppImage's bundled libraries
-# instead of your system's graphics drivers, causing a crash.
+# Clear AppImage noise to prevent "Unit Test" warnings and library crashes
 unset LD_LIBRARY_PATH
 unset PYTHONHOME
 unset PYTHONPATH
 
-# Ensure the prefix directory exists
-mkdir -p "$PREFIX_PATH"
+export STEAM_COMPAT_CLIENT_INSTALL_PATH="$HOME/.steam/steam"
+export STEAM_COMPAT_DATA_PATH="$PREFIX_PATH"
+export PROTON_NO_STEAM=1
+export PROTON_NO_ESYNC=1
+export PROTON_USE_WOW64=1
+
+# GE-Proton specifically looks for these to avoid the "Unit Test" skip
+export STAGING_SHARED_MEMORY=1
+export PROTON_DEBUG=1
 
 # --- 5. EXECUTION ---
 if [ ! -f "$PROTON_PATH/proton" ]; then
-    echo "Error: Proton binary not found at $PROTON_PATH/proton"
+    echo "Error: Proton not found at $PROTON_PATH/proton"
     exit 1
 fi
 
-# Launch Proton directly using the system environment
-exec "$PROTON_PATH/proton" "${SET_ARGS[@]}"
+# We use "run" as the first argument to the proton script, followed by our array
+exec "$PROTON_PATH/proton" run "${FINAL_ARGS[@]}"
