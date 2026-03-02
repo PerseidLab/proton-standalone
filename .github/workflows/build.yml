@@ -21,22 +21,39 @@ jobs:
         response=$(curl -s $GE_PROTON_API)
         tag_name=$(echo "$response" | jq -r '.tag_name')
         echo "Latest GE-Proton release tag: $tag_name"
-        # Modern method to set output
         echo "tag=$tag_name" >> $GITHUB_OUTPUT
 
     - name: Download latest GE-Proton release archive
+      id: download
       run: |
         TAG=${{ steps.geproton.outputs.tag }}
-        echo "Downloading GE-Proton release $TAG"
-        URL="https://github.com/GloriousEggroll/proton-ge-custom/releases/download/$TAG/GE-Proton-$TAG.tar.gz"
-        curl -L -o ge-proton.tar.gz "$URL"
+        echo "Fetching asset info for GE-Proton $TAG..."
+        # Get the first asset that matches tar.gz or tar.xz
+        ASSET_URL=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/tags/$TAG \
+          | jq -r '.assets[] | select(.name | test("GE-Proton-.*\\.(tar\\.gz|tar\\.xz)")) | .browser_download_url')
+        if [[ -z "$ASSET_URL" ]]; then
+          echo "Error: Could not find a tar.gz or tar.xz asset for $TAG"
+          exit 1
+        fi
+        echo "Asset URL: $ASSET_URL"
+        curl -L -o ge-proton.tar "$ASSET_URL"
+        echo "asset_url=$ASSET_URL" >> $GITHUB_OUTPUT
 
     - name: Extract GE-Proton into opt/
       run: |
         TAG=${{ steps.geproton.outputs.tag }}
+        ASSET_URL=${{ steps.download.outputs.asset_url }}
         rm -rf ./AppDir/opt/GE-Proton
         mkdir -p ./AppDir/opt
-        tar -xzf ge-proton.tar.gz -C ./AppDir/opt
+        # Extract based on archive type
+        if [[ "$ASSET_URL" == *.tar.gz ]]; then
+          tar -xzf ge-proton.tar -C ./AppDir/opt
+        elif [[ "$ASSET_URL" == *.tar.xz ]]; then
+          tar -xJf ge-proton.tar -C ./AppDir/opt
+        else
+          echo "Unknown archive format: $ASSET_URL"
+          exit 1
+        fi
         mv ./AppDir/opt/GE-Proton-$TAG ./AppDir/opt/GE-Proton
 
     - name: Download appimagetool
@@ -51,8 +68,8 @@ jobs:
     - name: Rename AppImage with version
       run: |
         TAG=${{ steps.geproton.outputs.tag }}
-        VERSION="${TAG#GE-Proton}"  # remove leading 'GE-Proton' if present
-        VERSION="${VERSION//-/.}"   # convert dashes to dots
+        VERSION="${TAG#GE-Proton}"        # remove leading 'GE-Proton' if present
+        VERSION="${VERSION//-/.}"         # convert dashes to dots
         NEW_NAME="ge-proton-${VERSION}-standalone.AppImage"
         mv ./AppDir.AppImage "./${NEW_NAME}"
         echo "AppImage renamed to $NEW_NAME"
