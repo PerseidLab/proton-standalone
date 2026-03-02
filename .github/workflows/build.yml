@@ -5,6 +5,10 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+# Fixes the 403 error by allowing the GITHUB_TOKEN to create releases
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,41 +25,47 @@ jobs:
       - name: Fetch Latest GE-Proton
         id: get_ge
         run: |
+          # Query GitHub API for the latest GE-Proton release
           RELEASE_INFO=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest)
           GE_VERSION=$(echo "$RELEASE_INFO" | jq -r '.tag_name')
           DOWNLOAD_URL=$(echo "$RELEASE_INFO" | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url')
 
+          echo "Found Latest Release: $GE_VERSION"
+
+          # Ensure target directory exists and extract GE-Proton into it
           mkdir -p AppDir/opt/GE-Proton
           wget -qO- "$DOWNLOAD_URL" | tar -xz -C AppDir/opt/GE-Proton --strip-components=1
 
+          # Store version and filename for subsequent steps
           echo "GE_VERSION=$GE_VERSION" >> $GITHUB_ENV
           echo "FINAL_NAME=${GE_VERSION}-standalone.AppImage" >> $GITHUB_ENV
 
       - name: Build AppImage
         run: |
+          # Make the local tool executable
           chmod +x appimagetool-x86_64.AppImage
-          # Build using the tool in root. ARCH is required by appimagetool.
+
+          # Build the AppImage. ARCH=x86_64 is required.
+          # We use --appimage-extract-and-run for compatibility with GitHub's environment.
           ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir
 
       - name: Rename Output Safely
         run: |
-          # 1. Find the newly created AppImage.
-          # We exclude the tool specifically by name to prevent mv errors.
+          # Locate the newly built AppImage, specifically ignoring our build tool
           GENERATED_FILE=$(find . -maxdepth 1 -name "*.AppImage" ! -name "appimagetool-x86_64.AppImage" -print -quit)
 
           if [ -f "$GENERATED_FILE" ]; then
-            echo "Moving $GENERATED_FILE to ${{ env.FINAL_NAME }}"
+            echo "Renaming $GENERATED_FILE to ${{ env.FINAL_NAME }}"
             mv "$GENERATED_FILE" "${{ env.FINAL_NAME }}"
           else
-            echo "Error: Generated AppImage not found."
+            echo "Error: AppImage build output not found!"
             exit 1
           fi
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.GE_VERSION }}-AppImage
-          # Only upload the renamed file, NOT the tool
+          name: ${{ env.GE_VERSION }}-Artifact
           path: "${{ env.FINAL_NAME }}"
 
       - name: Create Release
@@ -64,8 +74,13 @@ jobs:
         with:
           tag_name: ${{ env.GE_VERSION }}-${{ github.run_number }}
           name: Release ${{ env.GE_VERSION }}
-          # Explicitly only attach the standalone AppImage to the release
           files: "${{ env.FINAL_NAME }}"
-          body: "Automated standalone build of ${{ env.GE_VERSION }}"
+          body: |
+            ## Automated Build
+            - **GE-Proton Version:** ${{ env.GE_VERSION }}
+            - **Build Number:** ${{ github.run_number }}
+            - **Architecture:** x86_64
+
+            This AppImage is a standalone portable version of GE-Proton.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
