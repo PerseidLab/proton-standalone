@@ -28,9 +28,9 @@ jobs:
       run: |
         TAG=${{ steps.geproton.outputs.tag }}
         echo "Fetching asset info for GE-Proton $TAG..."
-        # Get the first asset that matches tar.gz or tar.xz
+        # Match GE-Proton followed by anything, then .tar.gz or .tar.xz
         ASSET_URL=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/tags/$TAG \
-          | jq -r '.assets[] | select(.name | test("GE-Proton-.*\\.(tar\\.gz|tar\\.xz)")) | .browser_download_url')
+          | jq -r '.assets[] | select(.name | test("GE-Proton.*\\.(tar\\.gz|tar\\.xz)")) | .browser_download_url')
         if [[ -z "$ASSET_URL" ]]; then
           echo "Error: Could not find a tar.gz or tar.xz asset for $TAG"
           exit 1
@@ -68,7 +68,7 @@ jobs:
     - name: Rename AppImage with version
       run: |
         TAG=${{ steps.geproton.outputs.tag }}
-        VERSION="${TAG#GE-Proton}"        # remove leading 'GE-Proton' if present
+        VERSION="${TAG#GE-Proton}"        # remove leading 'GE-Proton'
         VERSION="${VERSION//-/.}"         # convert dashes to dots
         NEW_NAME="ge-proton-${VERSION}-standalone.AppImage"
         mv ./AppDir.AppImage "./${NEW_NAME}"
