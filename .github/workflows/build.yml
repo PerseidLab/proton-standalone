@@ -13,40 +13,33 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install System Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y desktop-file-utils libgdk-pixbuf2.0-dev fakeroot binutils appstream
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10' # Downgrading to 3.10 often helps with the versioning bug
-
-      - name: Install appimage-builder and fix dependencies
-        run: |
-          # Install a specific version of 'packaging' that is sometimes more lenient
-          pip install packaging==23.2 appimage-builder
+      - name: Install Dependencies
+        run: sudo apt-get update && sudo apt-get install -y fuse libfuse2 desktop-file-utils binutils
 
       - name: Prepare AppDir
         run: |
+          # Ensure scripts are executable
           chmod +x AppDir/AppRun
           chmod +x AppDir/run-proton
-          mkdir -p AppDir/bin
-          # Ensure there is a dummy binary so the builder detects an architecture
-          cp /bin/ls AppDir/bin/ls
-          ln -sf /bin/bash AppDir/bin/bash
+
+          # Fix for potential missing icons/desktop issues
+          cp AppDir/run-proton.png AppDir/.DirIcon || true
+
+      - name: Download AppImageTool
+        run: |
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
 
       - name: Build AppImage
         shell: bash
         env:
           ARCH: x86_64
         run: |
-          # Use the --skip-tests flag to move fast
-          appimage-builder --skip-tests
+          # We manually point to the AppDir folder and package it
+          ./appimagetool-x86_64.AppImage ./AppDir GE-Proton-Standalone-x86_64.AppImage
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Proton-Standalone-AppImage
-          path: ./*.AppImage
+          name: Proton-Standalone
+          path: ./GE-Proton-Standalone-x86_64.AppImage
