@@ -7,12 +7,12 @@ A portable, standalone version of GE-Proton packaged as an AppImage. This versio
 - No Dependency Hell: All necessary libraries are bundled within the AppImage.
 - Simple Management: Easy install/uninstall flags for desktop integration.
 
-**Usage**
+**Usage**  
 Standard Launch  
 By default, running the AppImage will launch the Wine file explorer within the GE-Proton environment:
 ``./ge-proton-*-standalone.AppImage``  
 
-Running Specific Files  
+**Running Specific Files**  
 You can pass any Windows executable as an argument:  
 ``./ge-proton-*-standalone.AppImage path/to/game.exe``  
 
