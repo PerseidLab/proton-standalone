@@ -14,32 +14,29 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Dependencies
-        run: sudo apt-get update && sudo apt-get install -y fuse libfuse2 desktop-file-utils binutils
-
-      - name: Prepare AppDir
         run: |
-          # Ensure scripts are executable
+          sudo apt-get update
+          # libfuse2 is required to run AppImages (like appimagetool itself) on Ubuntu 22.04
+          sudo apt-get install -y fuse libfuse2 desktop-file-utils binutils
+
+      - name: Prepare AppDir Permissions
+        run: |
+          # Ensure your scripts are executable
           chmod +x AppDir/AppRun
           chmod +x AppDir/run-proton
-
-          # Fix for potential missing icons/desktop issues
-          cp AppDir/run-proton.png AppDir/.DirIcon || true
-
-      - name: Download AppImageTool
-        run: |
-          wget -q https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage
-          chmod +x appimagetool-x86_64.AppImage
+          # Ensure the tool you uploaded is executable
+          chmod +x ./appimagetool-x86_64.AppImage
 
       - name: Build AppImage
         shell: bash
         env:
           ARCH: x86_64
         run: |
-          # We manually point to the AppDir folder and package it
+          # Run the tool from your root to package the AppDir folder
           ./appimagetool-x86_64.AppImage ./AppDir GE-Proton-Standalone-x86_64.AppImage
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Proton-Standalone
+          name: Proton-Standalone-Build
           path: ./GE-Proton-Standalone-x86_64.AppImage
