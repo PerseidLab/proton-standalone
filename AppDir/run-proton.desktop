@@ -2,5 +2,4 @@
 Type=Application
 Name=Portable Proton
 Exec=run-proton
-Icon=portable-proton
 Categories=Utility;
