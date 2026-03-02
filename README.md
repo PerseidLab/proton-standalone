@@ -28,9 +28,10 @@ To clean up all shortcuts and file associations:
 ``./ge-proton-*-standalone.AppImage --uninstall``  
 
 **Technical Details**    
-- Upstream: Based on [Proton-GE](https://github.com/GloriousEggroll/proton-ge-custom) by GloriousEggroll.
+- Prefix directory (protonprefix) will be created in the same location as the AppImage file.
 - MIME Handling: Updates xdg-mime and update-desktop-database during the --install process.  
-- Prefix Management: Defaults to standard Wine prefix locations unless WINEPREFIX is specified.  
+- Upstream: Based on [Proton-GE](https://github.com/GloriousEggroll/proton-ge-custom) by GloriousEggroll.
+
 
 **Disclaimer**  
 This AppImage can't be run with Steam Linux Runtime and umu-launcher.  
