@@ -16,7 +16,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libfuse2 file wget curl
-          wget https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage
+          # UPDATED: Using the new official appimagetool repository URL
+          wget https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
 
       - name: Prepare AppDir and Fetch GE-Proton
@@ -39,14 +40,20 @@ jobs:
           cp AppRun PortableProton.AppDir/
           cp run-proton PortableProton.AppDir/
           cp run-proton.desktop PortableProton.AppDir/
-          cp run-proton.png PortableProton.AppDir/ || touch PortableProton.AppDir/run-proton.png
+          # Ensure an icon exists so appimagetool doesn't complain
+          if [ -f "run-proton.png" ]; then
+            cp run-proton.png PortableProton.AppDir/
+          else
+            touch PortableProton.AppDir/run-proton.png
+          fi
 
           chmod +x PortableProton.AppDir/AppRun
           chmod +x PortableProton.AppDir/run-proton
 
       - name: Build AppImage
         run: |
-          ./appimagetool-x86_64.AppImage PortableProton.AppDir Portable-Proton-x86_64.AppImage
+          # Use --appimage-extract-and-run if FUSE is being finicky in the runner
+          ./appimagetool-x86_64.AppImage --appimage-extract-and-run PortableProton.AppDir Portable-Proton-x86_64.AppImage
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
