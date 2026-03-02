@@ -33,5 +33,7 @@ To clean up all shortcuts and file associations:
 - MIME Handling: Updates xdg-mime and update-desktop-database during the --install process.  
 - Prefix Management: Defaults to standard Wine prefix locations unless WINEPREFIX is specified.  
 
-**Disclaimer**
+**Disclaimer**  
+This AppImage can't be run with Steam Linux Runtime and umu-launcher.  
+This project is for educational purposes only, so there might not be any updates.  
 This is a community packaging project. All credit for the development of Proton-GE goes to Thomas "GloriousEggroll" Crider and the Valve/Wine contributors. Please do not report issues related to this AppImage wrapper to the official GE-Proton repository.
