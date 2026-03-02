@@ -2,7 +2,7 @@
 set -e
 
 # ==========================================
-#   PORTABLE PROTON APPIMAGE RUNNER
+#    PORTABLE PROTON APPIMAGE RUNNER
 # ==========================================
 
 DESKTOP_DIR="$HOME/.local/share/applications"
@@ -11,41 +11,49 @@ EXTRA_DESKTOPS=("portable-proton-explorer.desktop" \
                 "portable-proton-winecfg.desktop" \
                 "portable-proton-reboot.desktop")
 
-# Detect if running as AppImage
+# ------------------------------------------
+# PATH DETECTION (AppImage vs Local)
+# ------------------------------------------
 if [[ -n "$APPIMAGE" ]]; then
+    # We are running inside an AppImage
+    # 1. The .AppImage file location (where the prefix should live)
+    APPIMAGE_FILE_DIR="$(dirname "$APPIMAGE")"
+    PREFIX_PATH="$APPIMAGE_FILE_DIR/proton-prefix"
+
+    # 2. The internal mount point (where GE-Proton is bundled)
+    # $APPDIR is automatically set by the AppImage runtime
+    PROTON_PATH="$APPDIR/opt/GE-Proton"
     APP_PATH="$APPIMAGE"
 else
+    # We are running as a loose script
     APP_PATH="$(realpath "$0")"
+    APP_DIR="$(dirname "$APP_PATH")"
+    PREFIX_PATH="$APP_DIR/proton-prefix"
+    PROTON_PATH="$APP_DIR/opt/GE-Proton"
 fi
 
-APP_DIR="$(dirname "$APP_PATH")"
-PREFIX_PATH="$APP_DIR/proton-prefix"
 mkdir -p "$PREFIX_PATH"
 
 # ------------------------------------------
-# INSTALL
+# INSTALL / UNINSTALL LOGIC
 # ------------------------------------------
 
 if [[ "$1" == "--install" ]]; then
-    echo "Installing desktop shortcuts pointing to:"
-    echo "$APP_PATH"
-
+    echo "Installing desktop shortcuts pointing to: $APP_PATH"
     mkdir -p "$DESKTOP_DIR"
 
-    # Main EXE handler
     cat <<EOF > "$DESKTOP_DIR/$MAIN_DESKTOP"
 [Desktop Entry]
 Type=Application
 Name=Portable Proton Runner
 Comment=Run Windows EXEs via Proton
 Exec="$APP_PATH" %f
-Icon=steam
+Icon=run-proton
 Terminal=false
 Categories=Utility;
 MimeType=application/x-ms-dos-executable;application/x-msdownload;
 EOF
 
-    # Explorer
     cat <<EOF > "$DESKTOP_DIR/portable-proton-explorer.desktop"
 [Desktop Entry]
 Type=Application
@@ -56,7 +64,6 @@ Terminal=false
 Categories=Utility;
 EOF
 
-    # Winecfg
     cat <<EOF > "$DESKTOP_DIR/portable-proton-winecfg.desktop"
 [Desktop Entry]
 Type=Application
@@ -67,7 +74,6 @@ Terminal=false
 Categories=Utility;
 EOF
 
-    # Wineboot
     cat <<EOF > "$DESKTOP_DIR/portable-proton-reboot.desktop"
 [Desktop Entry]
 Type=Application
@@ -80,99 +86,3 @@ EOF
 
     chmod +x "$DESKTOP_DIR"/portable-proton-*.desktop
     xdg-mime default "$MAIN_DESKTOP" application/x-ms-dos-executable
-    xdg-mime default "$MAIN_DESKTOP" application/x-msdownload
-    update-desktop-database "$DESKTOP_DIR"
-
-    echo "Installation complete."
-    exit 0
-fi
-
-# ------------------------------------------
-# UNINSTALL
-# ------------------------------------------
-
-if [[ "$1" == "--uninstall" ]]; then
-    echo "Removing shortcuts..."
-
-    rm -f "$DESKTOP_DIR/$MAIN_DESKTOP"
-
-    for file in "${EXTRA_DESKTOPS[@]}"; do
-        rm -f "$DESKTOP_DIR/$file"
-    done
-
-    update-desktop-database "$DESKTOP_DIR"
-    echo "Uninstalled successfully."
-    exit 0
-fi
-
-# ------------------------------------------
-# USE BUNDLED PROTON ONLY
-# ------------------------------------------
-
-PROTON_PATH="$APP_DIR/opt/GE-Proton"
-
-if [[ ! -d "$PROTON_PATH" ]]; then
-    echo "Error: Bundled GE-Proton not found in $PROTON_PATH"
-    exit 1
-fi
-
-# ------------------------------------------
-# Steam Runtime Detection (Optional)
-# ------------------------------------------
-
-RUNTIME_BASE=""
-
-if [[ -d "$HOME/.steam/steam/steamapps/common/SteamLinuxRuntime_sniper" ]]; then
-    RUNTIME_BASE="$HOME/.steam/steam/steamapps/common/SteamLinuxRuntime_sniper"
-fi
-
-if [[ -d "$HOME/.var/app/com.valvesoftware.Steam/.steam/steam/steamapps/common/SteamLinuxRuntime_sniper" ]]; then
-    RUNTIME_BASE="$HOME/.var/app/com.valvesoftware.Steam/.steam/steam/steamapps/common/SteamLinuxRuntime_sniper"
-fi
-
-# ------------------------------------------
-# Environment
-# ------------------------------------------
-
-export STEAM_COMPAT_CLIENT_INSTALL_PATH="$HOME/.steam/steam"
-export STEAM_COMPAT_DATA_PATH="$PREFIX_PATH"
-export PROTON_VERB="run"
-export PROTON_DISABLE_LSTEAMCLIENT=1
-export PROTON_NO_STEAM=1
-export PROTON_USE_WOW64=1
-export SDL_JOYSTICK_HIDAPI=0
-export SDL_HINT_JOYSTICK_HIDAPI=0
-
-if [[ -n "$RUNTIME_BASE" ]]; then
-    SNIPER_PLATFORM=$(ls -d "$RUNTIME_BASE"/sniper_platform_* 2>/dev/null | tail -n 1)
-    export PRESSURE_VESSEL_RUNTIME_ARCHIVE="$SNIPER_PLATFORM/files"
-fi
-
-# ------------------------------------------
-# DEFAULT BEHAVIOR
-# ------------------------------------------
-
-if [[ -z "$1" ]]; then
-    SET_ARGS=("explorer")
-else
-    if [[ -f "$1" ]]; then
-        EXE_PATH="$(realpath "$1")"
-        EXE_DIR="$(dirname "$EXE_PATH")"
-        cd "$EXE_DIR" || exit 1
-        shift
-        SET_ARGS=("$EXE_PATH" "$@")
-    else
-        SET_ARGS=("$@")
-    fi
-fi
-
-# ------------------------------------------
-# EXECUTION
-# ------------------------------------------
-
-if [[ -n "$RUNTIME_BASE" && -f "$RUNTIME_BASE/run-in-sniper" ]]; then
-    "$RUNTIME_BASE/run-in-sniper" -- "$PROTON_PATH/proton" run "${SET_ARGS[@]}"
-else
-    echo "Steam Runtime not found — running Proton directly."
-    "$PROTON_PATH/proton" run "${SET_ARGS[@]}"
-fi
