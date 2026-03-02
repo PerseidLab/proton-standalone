@@ -47,7 +47,6 @@ jobs:
       - name: Prepare Permissions
         run: |
           chmod +x AppDir/AppRun
-          chmod +x AppDir/run-proton
           chmod +x ./appimagetool-x86_64.AppImage
 
       - name: Build AppImage
