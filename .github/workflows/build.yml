@@ -1,13 +1,18 @@
-name: Build AppImage
+name: Build and Release AppImage
 
 on:
   push:
     branches: [ "main" ]
+    tags:
+      - 'v*' # Trigger release when you push a tag starting with 'v'
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-22.04
+    # Required permissions to create a release
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Code
@@ -16,27 +21,34 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          # libfuse2 is required to run AppImages (like appimagetool itself) on Ubuntu 22.04
           sudo apt-get install -y fuse libfuse2 desktop-file-utils binutils
 
-      - name: Prepare AppDir Permissions
+      - name: Prepare Permissions
         run: |
-          # Ensure your scripts are executable
           chmod +x AppDir/AppRun
           chmod +x AppDir/run-proton
-          # Ensure the tool you uploaded is executable
-          chmod +x ./appimagetool-x86_64.appimage
+          chmod +x ./appimagetool-x86_64.AppImage
 
       - name: Build AppImage
         shell: bash
         env:
           ARCH: x86_64
         run: |
-          # Run the tool from your root to package the AppDir folder
-          ./appimagetool-x86_64.appimage ./AppDir GE-Proton-Standalone-x86_64.AppImage
+          ./appimagetool-x86_64.AppImage ./AppDir GE-Proton-Standalone-x86_64.AppImage
 
+      # 1. Upload to Artifacts (Still zipped, good for debugging)
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Proton-Standalone-Build
           path: ./GE-Proton-Standalone-x86_64.AppImage
+
+      # 2. Create GitHub Release (Unzipped direct download)
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./GE-Proton-Standalone-x86_64.AppImage
+          generate_release_notes: true
+          draft: false
+          prerelease: false
