@@ -2,19 +2,19 @@ name: Build GE-Proton Standalone AppImage
 
 on:
   schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
+    - cron: '0 0 * * *'   # daily at midnight UTC
+  workflow_dispatch:      # manual trigger
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout your repo
+    - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Install dependencies (FUSE2)
-      run: sudo apt-get update && sudo apt-get install -y libfuse2 curl jq tar gzip xz-utils
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install -y libfuse2 curl jq tar gzip xz-utils imagemagick
 
     - name: Fetch latest GE-Proton release info
       id: geproton
@@ -37,11 +37,11 @@ jobs:
         curl -L -o ge-proton.tar "$ASSET_URL"
         echo "asset_url=$ASSET_URL" >> $GITHUB_OUTPUT
 
-    - name: Extract GE-Proton into opt/
+    - name: Extract GE-Proton into AppDir
       run: |
-        ASSET_URL=${{ steps.download.outputs.asset_url }}
         rm -rf ./AppDir/opt/GE-Proton
         mkdir -p ./AppDir/opt
+        ASSET_URL=${{ steps.download.outputs.asset_url }}
         if [[ "$ASSET_URL" == *.tar.gz ]]; then
           tar -xzf ge-proton.tar -C ./AppDir/opt
         elif [[ "$ASSET_URL" == *.tar.xz ]]; then
@@ -52,6 +52,23 @@ jobs:
         fi
         EXTRACTED_DIR=$(ls ./AppDir/opt | head -n1)
         mv "./AppDir/opt/$EXTRACTED_DIR" ./AppDir/opt/GE-Proton
+
+    - name: Add placeholder Wine icon
+      run: |
+        mkdir -p AppDir
+        curl -L -o AppDir/wine.png https://raw.githubusercontent.com/wine-mirror/wine/master/dlls/wine/wine.png
+
+    - name: Add .desktop file
+      run: |
+        mkdir -p AppDir
+        cat > AppDir/portable-proton.desktop <<EOF
+[Desktop Entry]
+Type=Application
+Name=Portable Proton
+Exec=run-proton
+Icon=wine
+Categories=Utility;
+EOF
 
     - name: Download appimagetool
       run: |
@@ -67,7 +84,12 @@ jobs:
         VERSION="${TAG#GE-Proton}"
         VERSION="${VERSION//-/.}"
         NEW_NAME="ge-proton-${VERSION}-standalone.AppImage"
-        mv ./AppDir.AppImage "./${NEW_NAME}"
+        GENERATED=$(ls ./AppDir-*.AppImage | head -n1)
+        if [[ -z "$GENERATED" ]]; then
+          echo "Error: AppImage not found!"
+          exit 1
+        fi
+        mv "$GENERATED" "./${NEW_NAME}"
         echo "AppImage renamed to $NEW_NAME"
 
     - name: Upload Release Asset (optional)
