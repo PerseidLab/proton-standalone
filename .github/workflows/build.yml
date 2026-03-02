@@ -28,10 +28,10 @@ jobs:
           # 1. Get the full release JSON from GloriousEggroll
           RELEASE_JSON=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest)
 
-          # 2. Extract the actual filename (e.g., GE-Proton10-32.tar.gz)
+          # 2. Extract the actual filename from the asset (e.g., GE-Proton10-32.tar.gz)
           FILE_NAME=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .name')
 
-          # 3. Strip the .tar.gz extension to get the base name (e.g., GE-Proton10-32)
+          # 3. Strip the .tar.gz extension to get the clean name (e.g., GE-Proton10-32)
           GE_VERSION=${FILE_NAME%.tar.gz}
           echo "GE_VERSION=$GE_VERSION" >> $GITHUB_ENV
 
@@ -48,15 +48,16 @@ jobs:
         run: |
           chmod +x AppDir/AppRun
           chmod +x AppDir/run-proton
-          # Ensure the tool exists or is downloaded if not part of your repo
-          # chmod +x ./appimagetool-x86_64.AppImage
+          chmod +x ./appimagetool-x86_64.AppImage
 
       - name: Build AppImage
         shell: bash
         env:
           ARCH: x86_64
+          # This line prevents the "Permission Denied" error in GitHub Actions
+          APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
-          # Build using the base filename + -standalone suffix
+          # Build the AppImage using the filename-based version name
           ./appimagetool-x86_64.AppImage ./AppDir "${{ env.GE_VERSION }}-standalone.AppImage"
 
       - name: Upload Artifact
