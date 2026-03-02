@@ -3,9 +3,10 @@ name: Build GE-Proton AppImage
 on:
   push:
     branches: [ "main", "master" ]
+  schedule:
+    - cron: '0 */6 * * *'  # Runs every 6 hours
   workflow_dispatch:
 
-# Fixes the 403 error by allowing the GITHUB_TOKEN to create releases
 permissions:
   contents: write
 
@@ -22,65 +23,57 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libfuse2 jq tar wget
 
-      - name: Fetch Latest GE-Proton
-        id: get_ge
+      - name: Check if update is needed
+        id: check_version
         run: |
-          # Query GitHub API for the latest GE-Proton release
-          RELEASE_INFO=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest)
-          GE_VERSION=$(echo "$RELEASE_INFO" | jq -r '.tag_name')
-          DOWNLOAD_URL=$(echo "$RELEASE_INFO" | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url')
+          # 1. Get the latest version from GloriousEggroll
+          GE_RELEASE=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest)
+          GE_VERSION=$(echo "$GE_RELEASE" | jq -r '.tag_name')
 
-          echo "Found Latest Release: $GE_VERSION"
+          # 2. Check your own latest release tag
+          # We use || true so it doesn't fail if you have 0 releases
+          MY_RELEASE=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest)
+          MY_VERSION=$(echo "$MY_RELEASE" | jq -r '.tag_name' || echo "none")
 
-          # Ensure target directory exists and extract GE-Proton into it
+          echo "Latest GE-Proton: $GE_VERSION"
+          echo "Your Latest Release: $MY_VERSION"
+
+          if [[ "$MY_VERSION" == "$GE_VERSION"* ]]; then
+            echo "Already up to date. Skipping build."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "New version found! Starting build..."
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "GE_VERSION=$GE_VERSION" >> $GITHUB_ENV
+            echo "DOWNLOAD_URL=$(echo "$GE_RELEASE" | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url')" >> $GITHUB_ENV
+            echo "FINAL_NAME=${GE_VERSION}-standalone.AppImage" >> $GITHUB_ENV
+          fi
+
+      - name: Fetch and Extract GE-Proton
+        if: steps.check_version.outputs.skip != 'true'
+        run: |
           mkdir -p AppDir/opt/GE-Proton
-          wget -qO- "$DOWNLOAD_URL" | tar -xz -C AppDir/opt/GE-Proton --strip-components=1
-
-          # Store version and filename for subsequent steps
-          echo "GE_VERSION=$GE_VERSION" >> $GITHUB_ENV
-          echo "FINAL_NAME=${GE_VERSION}-standalone.AppImage" >> $GITHUB_ENV
+          wget -qO- "${{ env.DOWNLOAD_URL }}" | tar -xz -C AppDir/opt/GE-Proton --strip-components=1
 
       - name: Build AppImage
+        if: steps.check_version.outputs.skip != 'true'
         run: |
-          # Make the local tool executable
           chmod +x appimagetool-x86_64.AppImage
-
-          # Build the AppImage. ARCH=x86_64 is required.
-          # We use --appimage-extract-and-run for compatibility with GitHub's environment.
           ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir
 
       - name: Rename Output Safely
+        if: steps.check_version.outputs.skip != 'true'
         run: |
-          # Locate the newly built AppImage, specifically ignoring our build tool
           GENERATED_FILE=$(find . -maxdepth 1 -name "*.AppImage" ! -name "appimagetool-x86_64.AppImage" -print -quit)
-
-          if [ -f "$GENERATED_FILE" ]; then
-            echo "Renaming $GENERATED_FILE to ${{ env.FINAL_NAME }}"
-            mv "$GENERATED_FILE" "${{ env.FINAL_NAME }}"
-          else
-            echo "Error: AppImage build output not found!"
-            exit 1
-          fi
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.GE_VERSION }}-Artifact
-          path: "${{ env.FINAL_NAME }}"
+          mv "$GENERATED_FILE" "${{ env.FINAL_NAME }}"
 
       - name: Create Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: steps.check_version.outputs.skip != 'true' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.GE_VERSION }}-${{ github.run_number }}
+          tag_name: ${{ env.GE_VERSION }}
           name: Release ${{ env.GE_VERSION }}
           files: "${{ env.FINAL_NAME }}"
-          body: |
-            ## Automated Build
-            - **GE-Proton Version:** ${{ env.GE_VERSION }}
-            - **Build Number:** ${{ github.run_number }}
-            - **Architecture:** x86_64
-
-            This AppImage is a standalone portable version of GE-Proton.
+          body: "Automated standalone build of ${{ env.GE_VERSION }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
