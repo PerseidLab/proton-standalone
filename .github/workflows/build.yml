@@ -25,7 +25,7 @@ jobs:
           chmod +x AppDir/AppRun
           chmod +x AppDir/run-proton
           # Ensure the tool you uploaded is executable
-          chmod +x ./appimagetool-x86_64.AppImage
+          chmod +x ./appimagetool-x86_64.appimage
 
       - name: Build AppImage
         shell: bash
@@ -33,7 +33,7 @@ jobs:
           ARCH: x86_64
         run: |
           # Run the tool from your root to package the AppDir folder
-          ./appimagetool-x86_64.AppImage ./AppDir GE-Proton-Standalone-x86_64.AppImage
+          ./appimagetool-x86_64.appimage ./AppDir GE-Proton-Standalone-x86_64.AppImage
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
