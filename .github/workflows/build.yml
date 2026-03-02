@@ -21,7 +21,8 @@ jobs:
         response=$(curl -s $GE_PROTON_API)
         tag_name=$(echo "$response" | jq -r '.tag_name')
         echo "Latest GE-Proton release tag: $tag_name"
-        echo "::set-output name=tag::$tag_name"
+        # Modern method to set output
+        echo "tag=$tag_name" >> $GITHUB_OUTPUT
 
     - name: Download latest GE-Proton release archive
       run: |
