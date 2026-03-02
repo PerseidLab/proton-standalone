@@ -4,7 +4,6 @@ A portable, standalone version of GE-Proton packaged as an AppImage. This versio
 **Key Features**  
 - Portable Runner: Run explorer.exe or any Windows binary by default.
 - System Integration: Register GE-Proton as a handler for .exe and .msi files.
-- No Dependency Hell: All necessary libraries are bundled within the AppImage.
 - Simple Management: Easy install/uninstall flags for desktop integration.
 
 **Usage**  
