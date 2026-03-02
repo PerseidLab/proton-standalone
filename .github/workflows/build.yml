@@ -27,14 +27,14 @@ jobs:
         run: |
           chmod +x AppDir/AppRun
           chmod +x AppDir/run-proton
-          chmod +x ./appimagetool-x86_64.AppImage
+          chmod +x ./appimagetool-x86_64.appimage
 
       - name: Build AppImage
         shell: bash
         env:
           ARCH: x86_64
         run: |
-          ./appimagetool-x86_64.AppImage ./AppDir GE-Proton-Standalone-x86_64.AppImage
+          ./appimagetool-x86_64.appimage ./AppDir GE-Proton-Standalone-x86_64.AppImage
 
       # 1. Upload to Artifacts (Still zipped, good for debugging)
       - name: Upload Artifact
