@@ -1,76 +1,66 @@
-name: Build and Release AppImage
+name: Build GE-Proton AppImage
 
 on:
   push:
-    branches: [ "main" ]
-    tags:
-      - 'v*'
+    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: write
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y fuse libfuse2 desktop-file-utils binutils curl jq tar
+          sudo apt-get install -y libfuse2 jq tar wget
 
-      - name: Fetch Latest GE-Proton and Get Version
-        id: get_version
+      - name: Fetch Latest GE-Proton
+        id: get_ge
         run: |
-          # 1. Get the full release JSON from GloriousEggroll
-          RELEASE_JSON=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest)
+          # Query GitHub API for the latest release tag and download URL
+          RELEASE_INFO=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest)
+          GE_VERSION=$(echo "$RELEASE_INFO" | jq -r '.tag_name')
+          DOWNLOAD_URL=$(echo "$RELEASE_INFO" | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url')
 
-          # 2. Extract the actual filename from the asset (e.g., GE-Proton10-32.tar.gz)
-          FILE_NAME=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .name')
+          echo "Found Latest Release: $GE_VERSION"
 
-          # 3. Strip the .tar.gz extension to get the clean name (e.g., GE-Proton10-32)
-          GE_VERSION=${FILE_NAME%.tar.gz}
-          echo "GE_VERSION=$GE_VERSION" >> $GITHUB_ENV
-
-          # 4. Extract the Download URL
-          URL=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url')
-
-          echo "Downloading $GE_VERSION from: $URL"
-
-          # 5. Prepare directory and extract GE-Proton contents
+          # Create directory and download
           mkdir -p AppDir/opt/GE-Proton
-          curl -L "$URL" | tar -xzC AppDir/opt/GE-Proton --strip-components=1
+          wget -qO- "$DOWNLOAD_URL" | tar -xz -C AppDir/opt/GE-Proton --strip-components=1
 
-      - name: Prepare Permissions
-        run: |
-          chmod +x AppDir/AppRun
-          chmod +x ./appimagetool-x86_64.AppImage
+          # Export variables for later steps
+          echo "GE_VERSION=$GE_VERSION" >> $GITHUB_ENV
+          echo "FINAL_NAME=${GE_VERSION}-standalone.AppImage" >> $GITHUB_ENV
 
       - name: Build AppImage
-        shell: bash
-        env:
-          ARCH: x86_64
-          # This line prevents the "Permission Denied" error in GitHub Actions
-          APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
-          # Build the AppImage using the filename-based version name
-          ./appimagetool-x86_64.AppImage ./AppDir "${{ env.GE_VERSION }}-standalone.AppImage"
+          chmod +x appimagetool-x86_64.AppImage
+          # Set ARCH and run the tool
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir
+
+      - name: Rename Output
+        run: |
+          # Rename the default output to your specific format
+          # (appimagetool usually outputs based on the .desktop name)
+          mv *.AppImage "${{ env.FINAL_NAME }}"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.GE_VERSION }}-Build
-          path: ./${{ env.GE_VERSION }}-standalone.AppImage
+          name: ${{ env.GE_VERSION }}-AppImage
+          path: "${{ env.FINAL_NAME }}"
 
       - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          files: ./${{ env.GE_VERSION }}-standalone.AppImage
+          tag_name: ${{ env.GE_VERSION }}-${{ github.run_number }}
           name: Release ${{ env.GE_VERSION }}
-          generate_release_notes: true
-          draft: false
-          prerelease: false
+          files: "${{ env.FINAL_NAME }}"
+          body: "Automated standalone build of ${{ env.GE_VERSION }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
