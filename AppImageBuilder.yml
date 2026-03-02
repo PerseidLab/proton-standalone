@@ -7,19 +7,15 @@ AppDir:
     name: GE-Proton-Standalone
     icon: run-proton
     version: latest
-    # This must match your main execution script in AppDir
+    # Ensure this matches your script name exactly
     exec: run-proton
     exec_args: $@
 
   runtime:
-    # MANDATORY: This stops the "Unable to determine architecture" error
-    architecture: x86_64
     env:
-      # Ensures the AppImage can find its internal files and system bash
       PATH: '$PATH:$APPDIR/bin:$APPDIR/usr/bin'
       WINEPREFIX: '$APPDIR/proton-prefix'
 
-  # If your app requires specific Ubuntu packages, list them here
   apt:
     arch: amd64
     sources:
@@ -29,6 +25,7 @@ AppDir:
       - libstdc++6
 
 AppImage:
+  # This is where the architecture belongs
+  arch: x86_64
   update-information: 'none'
   sign-key: 'none'
-  arch: x86_64

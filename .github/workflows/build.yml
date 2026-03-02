@@ -26,19 +26,22 @@ jobs:
       - name: Install appimage-builder
         run: pip install appimage-builder
 
-      - name: Prepare AppDir Permissions
+      - name: Prepare AppDir
         run: |
-          # Ensure all scripts and binaries are executable before building
+          # Ensure scripts are executable
           chmod +x AppDir/AppRun
           chmod +x AppDir/run-proton
-          # Create a symlink for bash to satisfy the builder's check
+
+          # Create a symlink for bash inside the AppDir to satisfy
+          # the builder's dependency check for your shell scripts
           mkdir -p AppDir/bin
           ln -s /bin/bash AppDir/bin/bash
 
       - name: Build AppImage
         shell: bash
         env:
-          # Force the architecture environment variable
+          # This environment variable is the standard way to
+          # force the architecture in appimage-builder
           ARCH: x86_64
         run: |
           appimage-builder --skip-tests
