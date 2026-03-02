@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
 Name=Portable Proton
-Exec=run-proton
+Exec=AppRun
 Icon=run-proton
 Categories=Utility;

@@ -1,7 +1,121 @@
 #!/bin/bash
-# Get the absolute path to the directory where this AppRun script is located
-SELF_DIR="$(dirname "$(readlink -f "$0")")"
 
-# Execute your main script, passing all arguments ($@)
-# and ensuring the path is relative to the internal AppImage mount
-exec "$SELF_DIR/run-proton" "$@"
+# --- 0. PATH & MOUNT DETECTION ---
+# $APPDIR is set automatically by the AppImage runtime at launch.
+# $APPIMAGE is the path to the actual .AppImage file on the user's drive.
+
+if [[ -n "$APPDIR" ]]; then
+    # Running INSIDE the AppImage mount point
+    MOUNT_DIR="$APPDIR"
+    APP_FILE_PATH="$APPIMAGE"
+    # We store the prefix in the same folder as the .AppImage file for portability
+    BASE_DIR="$(dirname "$APPIMAGE")"
+else
+    # Running as a standalone script (Development mode)
+    MOUNT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    APP_FILE_PATH="$(realpath "$0")"
+    BASE_DIR="$MOUNT_DIR"
+fi
+
+# Internal paths (Inside the SquashFS mount)
+PROTON_PATH="$MOUNT_DIR/opt/GE-Proton"
+
+# External paths (On the user's writeable disk)
+PREFIX_PATH="$BASE_DIR/sharedprotonprefix"
+DESKTOP_DIR="$HOME/.local/share/applications"
+MAIN_DESKTOP="run-proton.desktop"
+EXTRA_DESKTOPS=("proton-explorer.desktop" "proton-winecfg.desktop" "proton-reboot.desktop" "proton-terminal.desktop")
+
+# --- 1. STEAM RUNTIME DETECTION ---
+RUNTIME_PATH="steamapps/common/SteamLinuxRuntime_sniper"
+RUNTIME_BASE="$HOME/.steam/steam/$RUNTIME_PATH"
+
+# Fallback to Flatpak Steam if native is missing
+if [ ! -d "$RUNTIME_BASE" ]; then
+    FLATPAK_RUNTIME="$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/$RUNTIME_PATH"
+    if [ -d "$FLATPAK_RUNTIME" ]; then
+        RUNTIME_BASE="$FLATPAK_RUNTIME"
+    fi
+fi
+
+mkdir -p "$PREFIX_PATH"
+
+# --- 2. INSTALLATION LOGIC ---
+if [[ "$1" == "--uninstall" ]]; then
+    echo "Removing desktop integration..."
+    rm -f "$DESKTOP_DIR/$MAIN_DESKTOP"
+    for file in "${EXTRA_DESKTOPS[@]}"; do rm -f "$DESKTOP_DIR/$file"; done
+    update-desktop-database "$DESKTOP_DIR"
+    exit 0
+fi
+
+if [[ "$1" == "--install" ]]; then
+    echo "Installing desktop shortcuts..."
+    mkdir -p "$DESKTOP_DIR"
+
+    cat <<EOF > "$DESKTOP_DIR/$MAIN_DESKTOP"
+[Desktop Entry]
+Type=Application
+Name=Proton Runner (AppImage)
+Exec="$APP_FILE_PATH" %f
+Icon=steam
+Terminal=false
+Categories=Utility;
+MimeType=application/x-ms-dos-executable;application/x-msdownload;application/x-executable;
+EOF
+    chmod +x "$DESKTOP_DIR/$MAIN_DESKTOP"
+    update-desktop-database "$DESKTOP_DIR"
+    echo "Done. You can now right-click .exe files and 'Open With' this AppImage."
+    exit 0
+fi
+
+# --- 3. PROTON ENVIRONMENT SETUP ---
+export STEAM_COMPAT_CLIENT_INSTALL_PATH="$HOME/.steam/steam"
+export STEAM_COMPAT_DATA_PATH="$PREFIX_PATH"
+export PROTON_VERB="run"
+export PROTON_DISABLE_LSTEAMCLIENT=1
+export PROTON_NO_STEAM=1
+export PROTON_USE_WOW64=1
+export PROTON_MEDIA_USE_GST=1
+export SDL_JOYSTICK_HIDAPI=0
+export SDL_HINT_JOYSTICK_HIDAPI=0
+
+# Ensure the internal Proton exists
+if [ ! -f "$PROTON_PATH/proton" ]; then
+    echo "Error: Proton binary not found at $PROTON_PATH/proton"
+    exit 1
+fi
+
+# Detect Sniper Platform for Steam Runtime
+SNIPER_PLATFORM=$(ls -d "$RUNTIME_BASE"/sniper_platform_* 2>/dev/null | tail -n 1)
+if [ -n "$SNIPER_PLATFORM" ]; then
+    export PRESSURE_VESSEL_RUNTIME_ARCHIVE="$SNIPER_PLATFORM/files"
+fi
+
+# --- 4. ARGUMENT HANDLING ---
+if [ -z "$1" ]; then
+    # Default to Wine Explorer if no EXE is provided
+    SET_ARGS=("explorer")
+elif [ -f "$1" ]; then
+    # If a file is passed, get absolute path and move to that directory
+    EXE_PATH=$(realpath "$1")
+    cd "$(dirname "$EXE_PATH")" || exit
+    shift
+    SET_ARGS=("$EXE_PATH" "$@")
+else
+    SET_ARGS=("${@}")
+fi
+
+# --- 5. EXECUTION ---
+# Clean up LD_LIBRARY_PATH to prevent AppImage/Host library conflicts
+export OLD_LD_PATH="$LD_LIBRARY_PATH"
+unset LD_LIBRARY_PATH
+
+if [ -d "$RUNTIME_BASE" ] && [ -x "$RUNTIME_BASE/run-in-sniper" ]; then
+    echo "Launching via Steam Linux Runtime..."
+    exec "$RUNTIME_BASE/run-in-sniper" -- "$PROTON_PATH/proton" run "${SET_ARGS[@]}"
+else
+    echo "Warning: Steam Runtime not found. Attempting direct launch..."
+    export LD_LIBRARY_PATH="$OLD_LD_PATH"
+    exec "$PROTON_PATH/proton" run "${SET_ARGS[@]}"
+fi
