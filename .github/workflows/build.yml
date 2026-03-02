@@ -38,8 +38,10 @@ jobs:
         tar -xzf ge-proton.tar.gz -C ./AppDir/opt
         mv ./AppDir/opt/GE-Proton-$TAG ./AppDir/opt/GE-Proton
 
-    - name: Install appimagetool
-      uses: electron/actions/setup-appimage@v1
+- name: Download appimagetool
+  run: |
+    curl -LO https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+    chmod +x appimagetool-x86_64.AppImage
 
     - name: Build AppImage
       run: |
