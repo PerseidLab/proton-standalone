@@ -28,7 +28,6 @@ jobs:
       run: |
         TAG=${{ steps.geproton.outputs.tag }}
         echo "Fetching asset info for GE-Proton $TAG..."
-        # Match GE-Proton followed by anything, then .tar.gz or .tar.xz
         ASSET_URL=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/tags/$TAG \
           | jq -r '.assets[] | select(.name | test("GE-Proton.*\\.(tar\\.gz|tar\\.xz)")) | .browser_download_url')
         if [[ -z "$ASSET_URL" ]]; then
@@ -41,7 +40,6 @@ jobs:
 
     - name: Extract GE-Proton into opt/
       run: |
-        TAG=${{ steps.geproton.outputs.tag }}
         ASSET_URL=${{ steps.download.outputs.asset_url }}
         rm -rf ./AppDir/opt/GE-Proton
         mkdir -p ./AppDir/opt
@@ -54,7 +52,9 @@ jobs:
           echo "Unknown archive format: $ASSET_URL"
           exit 1
         fi
-        mv ./AppDir/opt/GE-Proton-$TAG ./AppDir/opt/GE-Proton
+        # Detect the extracted folder and rename it
+        EXTRACTED_DIR=$(ls ./AppDir/opt | head -n1)
+        mv "./AppDir/opt/$EXTRACTED_DIR" ./AppDir/opt/GE-Proton
 
     - name: Download appimagetool
       run: |
