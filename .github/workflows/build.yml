@@ -21,37 +21,41 @@ jobs:
       - name: Fetch Latest GE-Proton
         id: get_ge
         run: |
-          # Query GitHub API for the latest release tag and download URL
           RELEASE_INFO=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest)
           GE_VERSION=$(echo "$RELEASE_INFO" | jq -r '.tag_name')
           DOWNLOAD_URL=$(echo "$RELEASE_INFO" | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url')
 
-          echo "Found Latest Release: $GE_VERSION"
-
-          # Create directory and download
           mkdir -p AppDir/opt/GE-Proton
           wget -qO- "$DOWNLOAD_URL" | tar -xz -C AppDir/opt/GE-Proton --strip-components=1
 
-          # Export variables for later steps
           echo "GE_VERSION=$GE_VERSION" >> $GITHUB_ENV
           echo "FINAL_NAME=${GE_VERSION}-standalone.AppImage" >> $GITHUB_ENV
 
       - name: Build AppImage
         run: |
           chmod +x appimagetool-x86_64.AppImage
-          # Set ARCH and run the tool
+          # Build using the tool in root. ARCH is required by appimagetool.
           ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir
 
-      - name: Rename Output
+      - name: Rename Output Safely
         run: |
-          # Rename the default output to your specific format
-          # (appimagetool usually outputs based on the .desktop name)
-          mv *.AppImage "${{ env.FINAL_NAME }}"
+          # 1. Find the newly created AppImage.
+          # We exclude the tool specifically by name to prevent mv errors.
+          GENERATED_FILE=$(find . -maxdepth 1 -name "*.AppImage" ! -name "appimagetool-x86_64.AppImage" -print -quit)
+
+          if [ -f "$GENERATED_FILE" ]; then
+            echo "Moving $GENERATED_FILE to ${{ env.FINAL_NAME }}"
+            mv "$GENERATED_FILE" "${{ env.FINAL_NAME }}"
+          else
+            echo "Error: Generated AppImage not found."
+            exit 1
+          fi
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.GE_VERSION }}-AppImage
+          # Only upload the renamed file, NOT the tool
           path: "${{ env.FINAL_NAME }}"
 
       - name: Create Release
@@ -60,6 +64,7 @@ jobs:
         with:
           tag_name: ${{ env.GE_VERSION }}-${{ github.run_number }}
           name: Release ${{ env.GE_VERSION }}
+          # Explicitly only attach the standalone AppImage to the release
           files: "${{ env.FINAL_NAME }}"
           body: "Automated standalone build of ${{ env.GE_VERSION }}"
         env:
