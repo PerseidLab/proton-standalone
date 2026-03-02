@@ -60,7 +60,7 @@ jobs:
       - name: Add .desktop file
         run: |
           mkdir -p AppDir
-          cat > AppDir/run-proton.desktop <<EOF
+          cat > AppDir/run-proton.desktop << 'EOF'
 [Desktop Entry]
 Type=Application
 Name=Portable Proton
@@ -73,7 +73,7 @@ EOF
         run: |
           mkdir -p AppDir
           # Create simple launcher if missing
-          cat > AppDir/run-proton <<'EOF'
+          cat > AppDir/run-proton << 'EOF'
 #!/bin/bash
 DIR="$(dirname "$0")"
 "$DIR/opt/GE-Proton/proton" "$@"
