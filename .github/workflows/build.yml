@@ -2,42 +2,44 @@ name: Build AppImage
 
 on:
   push:
-    branches:
-      - main  # Set this to the branch you want to build from, like "main" or "master"
-    tags:
-      - 'v*'   # Optional: Builds on every version tag (e.g., v1.0)
+    branches: [ "main" ]
   pull_request:
-    branches:
-      - main
+    branches: [ "main" ]
+  workflow_dispatch: # Allows you to run this manually from the Actions tab
 
 jobs:
-  build-appimage:
-    runs-on: ubuntu-22.04  # Standard environment for AppImage builds
+  build:
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y desktop-file-utils libgdk-pixbuf2.0-dev fakeroot binutils
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.x'
+          python-version: '3.11' # Use 3.11 for better stability with appimage-builder
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y appstream desktop-file-utils libc-bin # System deps for appimage-builder
-          pip install appimage-builder
+      - name: Install appimage-builder
+        run: pip install appimage-builder
 
-      # This step builds the AppImage using your configuration.
       - name: Build AppImage
-        run: appimage-builder --skip-tests
-        # Optional: You might need to change 'appimage-builder --skip-tests'
-        # to just 'appimage-builder' if you have tests defined.
+        shell: bash
+        env:
+          UPDATE_INFO: none
+          # This line fixes the "Unable to determine bundle architecture" error
+          ARCH: x86_64
+        run: |
+          # Use the --recipe flag to match your lowercase filename
+          appimage-builder --recipe appimage-builder.yml --skip-tests
 
-      # Uploads the final build artifact so you can download it.
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: my-app-AppImage # Give the artifact a clear name
-          path: '*.AppImage'    # Collects any AppImage file created in the root
+          name: Proton-AppImage
+          path: ./*.AppImage
