@@ -4,13 +4,12 @@ on:
   push:
     branches: [ "main" ]
     tags:
-      - 'v*' # Trigger release when you push a tag starting with 'v'
+      - 'v*'
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-    # Required permissions to create a release
     permissions:
       contents: write
 
@@ -21,34 +20,45 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y fuse libfuse2 desktop-file-utils binutils
+          sudo apt-get install -y fuse libfuse2 desktop-file-utils binutils curl jq tar
+
+      - name: Fetch Latest GE-Proton
+        run: |
+          # 1. Create the target directory
+          mkdir -p AppDir/opt/GE-Proton
+
+          # 2. Get the download URL for the latest release asset ending in .tar.gz
+          URL=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest \
+                | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url')
+
+          echo "Downloading latest GE-Proton from: $URL"
+
+          # 3. Download and extract directly into opt/GE-Proton
+          # --strip-components=1 removes the top-level folder from the archive (e.g., GE-Proton9-2/)
+          curl -L "$URL" | tar -xzC AppDir/opt/GE-Proton --strip-components=1
 
       - name: Prepare Permissions
         run: |
           chmod +x AppDir/AppRun
           chmod +x AppDir/run-proton
-          chmod +x ./appimagetool-x86_64.appimage
+          chmod +x ./appimagetool-x86_64.AppImage
 
       - name: Build AppImage
         shell: bash
         env:
           ARCH: x86_64
         run: |
-          ./appimagetool-x86_64.appimage ./AppDir GE-Proton-Standalone-x86_64.AppImage
+          ./appimagetool-x86_64.AppImage ./AppDir GE-Proton-Standalone-x86_64.AppImage
 
-      # 1. Upload to Artifacts (Still zipped, good for debugging)
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Proton-Standalone-Build
           path: ./GE-Proton-Standalone-x86_64.AppImage
 
-      # 2. Create GitHub Release (Unzipped direct download)
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: ./GE-Proton-Standalone-x86_64.AppImage
           generate_release_notes: true
-          draft: false
-          prerelease: false
