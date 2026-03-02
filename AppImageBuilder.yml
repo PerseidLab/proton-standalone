@@ -7,7 +7,6 @@ AppDir:
     name: GE-Proton-Standalone
     icon: run-proton
     version: latest
-    # Ensure this matches your script name exactly
     exec: run-proton
     exec_args: $@
 
@@ -20,12 +19,14 @@ AppDir:
     arch: amd64
     sources:
       - sourceline: 'deb http://archive.ubuntu.com/ubuntu/ jammy main restricted universe'
+      - sourceline: 'deb http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe'
     include:
       - libc6
       - libstdc++6
+      - libglu1-mesa
+      - libx11-6
 
 AppImage:
-  # This is where the architecture belongs
   arch: x86_64
   update-information: 'none'
   sign-key: 'none'

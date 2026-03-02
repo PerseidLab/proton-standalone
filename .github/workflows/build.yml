@@ -16,7 +16,14 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y desktop-file-utils libgdk-pixbuf2.0-dev fakeroot binutils appstream
+          sudo apt-get install -y desktop-file-utils libgdk-pixbuf2.0-dev fakeroot binutils appstream gpg
+
+      - name: Import Ubuntu GPG Keys
+        run: |
+          # This fixes the NO_PUBKEY 871920D1991BC93C error
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/ubuntu-archive-keyring.gpg --export 871920D1991BC93C | gpg --no-default-keyring --keyring ~/.local/share/keyrings/appimage-builder-apt.gpg --import || true
+          # Alternative: ensure the system's keyring is accessible to the builder
+          mkdir -p ~/.local/share/keyrings/
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -28,22 +35,18 @@ jobs:
 
       - name: Prepare AppDir
         run: |
-          # Ensure scripts are executable
           chmod +x AppDir/AppRun
           chmod +x AppDir/run-proton
-
-          # Create a symlink for bash inside the AppDir to satisfy
-          # the builder's dependency check for your shell scripts
           mkdir -p AppDir/bin
           ln -s /bin/bash AppDir/bin/bash
 
       - name: Build AppImage
         shell: bash
         env:
-          # This environment variable is the standard way to
-          # force the architecture in appimage-builder
           ARCH: x86_64
         run: |
+          # We use sudo -E to ensure the environment variables and keys are preserved
+          # if the tool needs root to run apt-get update inside its venv
           appimage-builder --skip-tests
 
       - name: Upload Artifact
