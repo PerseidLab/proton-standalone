@@ -25,11 +25,11 @@ jobs:
       - name: Fetch Latest GE-Proton and Get Version
         id: get_version
         run: |
-          # 1. Get the full release JSON to extract both the version name and the URL
+          # 1. Get the full release JSON from GloriousEggroll
           RELEASE_JSON=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest)
 
-          # 2. Extract the Version Name (e.g., GE-Proton9-2)
-          GE_VERSION=$(echo "$RELEASE_JSON" | jq -r '.name')
+          # 2. Extract the Version Name (e.g., GE-Proton9-2) and save to Environment
+          GE_VERSION=$(echo "$RELEASE_JSON" | jq -r '.name' | tr ' ' '-')
           echo "GE_VERSION=$GE_VERSION" >> $GITHUB_ENV
 
           # 3. Extract the Download URL
@@ -37,7 +37,7 @@ jobs:
 
           echo "Downloading $GE_VERSION from: $URL"
 
-          # 4. Prepare directory and extract
+          # 4. Prepare directory and extract GE-Proton contents
           mkdir -p AppDir/opt/GE-Proton
           curl -L "$URL" | tar -xzC AppDir/opt/GE-Proton --strip-components=1
 
@@ -52,19 +52,23 @@ jobs:
         env:
           ARCH: x86_64
         run: |
-          # We use the $GE_VERSION variable we saved earlier to name the file
+          # Build the AppImage using the version name captured earlier
           ./appimagetool-x86_64.AppImage ./AppDir "${{ env.GE_VERSION }}-standalone.AppImage"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.GE_VERSION }}-Build
-          path: ./*.AppImage
+          # Explicitly target the built file so the tool isn't zipped up
+          path: ./${{ env.GE_VERSION }}-standalone.AppImage
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: ./*.AppImage
+          # This specifically uploads only your new build to the release assets
+          files: ./${{ env.GE_VERSION }}-standalone.AppImage
           name: Release ${{ env.GE_VERSION }}
           generate_release_notes: true
+          draft: false
+          prerelease: false
