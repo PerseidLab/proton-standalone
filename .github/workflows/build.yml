@@ -2,8 +2,8 @@ name: Build GE-Proton Standalone AppImage
 
 on:
   schedule:
-    - cron: '0 0 * * *'   # daily at midnight UTC
-  workflow_dispatch:      # manual trigger
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -20,24 +20,20 @@ jobs:
       id: geproton
       run: |
         GE_PROTON_API="https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
-        echo "Fetching latest GE-Proton release info..."
         response=$(curl -s $GE_PROTON_API)
         tag_name=$(echo "$response" | jq -r '.tag_name')
-        echo "Latest GE-Proton release tag: $tag_name"
         echo "tag=$tag_name" >> $GITHUB_OUTPUT
 
     - name: Download latest GE-Proton release archive
       id: download
       run: |
         TAG=${{ steps.geproton.outputs.tag }}
-        echo "Fetching asset info for GE-Proton $TAG..."
         ASSET_URL=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/tags/$TAG \
           | jq -r '.assets[] | select(.name | test("GE-Proton.*\\.(tar\\.gz|tar\\.xz)")) | .browser_download_url')
         if [[ -z "$ASSET_URL" ]]; then
           echo "Error: Could not find a tar.gz or tar.xz asset for $TAG"
           exit 1
         fi
-        echo "Asset URL: $ASSET_URL"
         curl -L -o ge-proton.tar "$ASSET_URL"
         echo "asset_url=$ASSET_URL" >> $GITHUB_OUTPUT
 
@@ -46,7 +42,6 @@ jobs:
         ASSET_URL=${{ steps.download.outputs.asset_url }}
         rm -rf ./AppDir/opt/GE-Proton
         mkdir -p ./AppDir/opt
-        # Extract based on archive type
         if [[ "$ASSET_URL" == *.tar.gz ]]; then
           tar -xzf ge-proton.tar -C ./AppDir/opt
         elif [[ "$ASSET_URL" == *.tar.xz ]]; then
@@ -55,7 +50,6 @@ jobs:
           echo "Unknown archive format: $ASSET_URL"
           exit 1
         fi
-        # Detect the extracted folder and rename it
         EXTRACTED_DIR=$(ls ./AppDir/opt | head -n1)
         mv "./AppDir/opt/$EXTRACTED_DIR" ./AppDir/opt/GE-Proton
 
@@ -65,13 +59,13 @@ jobs:
         chmod +x appimagetool-x86_64.AppImage
 
     - name: Build AppImage
-      run: ./appimagetool-x86_64.AppImage ./AppDir
+      run: ARCH=x86_64 ./appimagetool-x86_64.AppImage ./AppDir
 
     - name: Rename AppImage with version
       run: |
         TAG=${{ steps.geproton.outputs.tag }}
-        VERSION="${TAG#GE-Proton}"        # remove leading 'GE-Proton'
-        VERSION="${VERSION//-/.}"         # convert dashes to dots
+        VERSION="${TAG#GE-Proton}"
+        VERSION="${VERSION//-/.}"
         NEW_NAME="ge-proton-${VERSION}-standalone.AppImage"
         mv ./AppDir.AppImage "./${NEW_NAME}"
         echo "AppImage renamed to $NEW_NAME"
