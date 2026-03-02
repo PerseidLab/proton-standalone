@@ -2,83 +2,60 @@ name: Build Portable Proton AppImage
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Tools
+      - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfuse2 file wget curl
-          wget https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
-          chmod +x appimagetool-x86_64.AppImage
+          sudo apt-get install -y libfuse2 kpartx desktop-file-utils
 
-      - name: Prepare AppDir and Fetch GE-Proton
+      - name: Prepare AppDir
         run: |
-          # 1. Create structure
-          mkdir -p PortableProton.AppDir/opt/GE-Proton
+          # Ensure AppDir exists and has correct structure based on your screenshot
+          mkdir -p AppDir/opt
 
-          # 2. Get latest GE-Proton
-          GE_URL=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest \
-            | grep "browser_download_url.*\.tar\.gz" \
-            | cut -d '"' -f 4 | head -n 1)
+          # If your local files aren't already in AppDir, move them here
+          # We ensure the script is named 'AppRun' at the root for AppImage standard
+          cp run-proton AppDir/AppRun
+          chmod +x AppDir/AppRun
 
-          echo "Downloading $GE_URL..."
-          curl -Lo proton.tar.gz "$GE_URL"
-          tar -xzf proton.tar.gz -C PortableProton.AppDir/opt/GE-Proton --strip-components=1
+          # Copy resources
+          cp run-proton.desktop AppDir/
+          cp run-proton.png AppDir/
 
-          # 3. GENERATE AppRun (Fixed line 39 syntax)
-          cat <<'EOF' > PortableProton.AppDir/AppRun
-#!/bin/bash
-exec "$(dirname "$0")/run-proton" "$@"
-EOF
-          chmod +x PortableProton.AppDir/AppRun
+          # Ensure GE-Proton is in the correct place inside AppDir
+          # If it's outside in your repo, move it in:
+          [ -d "opt/GE-Proton" ] && cp -r opt/GE-Proton AppDir/opt/
 
-          # 4. Copy main script
-          cp run-proton PortableProton.AppDir/
-          chmod +x PortableProton.AppDir/run-proton
-
-          # 5. GENERATE Desktop file
-          cat <<EOF > PortableProton.AppDir/run-proton.desktop
-[Desktop Entry]
-Name=Portable Proton
-Exec=AppRun %f
-Icon=run-proton
-Type=Application
-Terminal=false
-Categories=Utility;
-MimeType=application/x-ms-dos-executable;
-EOF
-
-          # 6. Icon handling
-          if [ -f "run-proton.png" ]; then
-            cp run-proton.png PortableProton.AppDir/
-          else
-            touch PortableProton.AppDir/run-proton.png
-          fi
+      - name: Download AppImageTool
+        run: |
+          wget https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
 
       - name: Build AppImage
         run: |
-          ./appimagetool-x86_64.AppImage --appimage-extract-and-run PortableProton.AppDir Portable-Proton-x86_64.AppImage
+          # ARCH is required by appimagetool
+          export ARCH=x86_64
+          ./appimagetool-x86_64.AppImage AppDir Portable_Proton-x86_64.AppImage
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Portable-Proton
-          path: "*.AppImage"
+          name: Portable-Proton-AppImage
+          path: Portable_Proton-x86_64.AppImage
 
       - name: Create Release
-        if: github.ref == 'refs/heads/main'
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: "*.AppImage"
-          tag_name: v${{ github.run_number }}
-          name: Release v${{ github.run_number }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          files: Portable_Proton-x86_64.AppImage
