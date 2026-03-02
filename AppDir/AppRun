@@ -11,7 +11,12 @@ else
     BASE_DIR="$MOUNT_DIR"
 fi
 
-PROTON_PATH="$MOUNT_DIR/opt/GE-Proton"
+# Internal Paths
+PROTON_DIR="$MOUNT_DIR/opt/GE-Proton"
+WINE_BIN="$PROTON_DIR/files/bin/wine"
+WINE_64="$PROTON_DIR/files/bin/wine64"
+
+# External Paths
 PREFIX_PATH="$BASE_DIR/sharedprotonprefix"
 mkdir -p "$PREFIX_PATH"
 
@@ -19,62 +24,59 @@ mkdir -p "$PREFIX_PATH"
 if [[ "$1" == "--install" ]]; then
     DESKTOP_DIR="$HOME/.local/share/applications"
     mkdir -p "$DESKTOP_DIR"
-    cat <<EOF > "$DESKTOP_DIR/proton-runner.desktop"
+    cat <<EOF > "$DESKTOP_DIR/proton-app.desktop"
 [Desktop Entry]
 Type=Application
-Name=Proton Runner
+Name=Proton App
 Exec="$APP_FILE_PATH" %f
 Icon=steam
 Categories=Utility;
 MimeType=application/x-ms-dos-executable;
 EOF
     update-desktop-database "$DESKTOP_DIR"
-    echo "Installed."
     exit 0
 fi
 
-# --- 3. ARGUMENT CAPTURING (The Fix) ---
-# We use a dedicated array to ensure we don't pass empty strings
-FINAL_ARGS=()
-
+# --- 3. ARGUMENT HANDLING ---
 if [ -z "$1" ]; then
-    # Default behavior if launched with no args
-    FINAL_ARGS=("explorer")
+    CMD="explorer"
+elif [ -f "$1" ]; then
+    ABS_EXE=$(realpath "$1")
+    cd "$(dirname "$ABS_EXE")" || exit
+    CMD="$ABS_EXE"
+    shift
+    EXTRA_ARGS=("$@")
 else
-    # Check if first arg is a file
-    if [ -f "$1" ]; then
-        ABS_EXE=$(realpath "$1")
-        cd "$(dirname "$ABS_EXE")" || exit
-        shift
-        # Rebuild the array with absolute path + remaining flags
-        FINAL_ARGS=("$ABS_EXE" "$@")
-    else
-        # If it's just a command like 'explorer' or 'winecfg'
-        FINAL_ARGS=("${@}")
-    fi
+    CMD="$1"
+    shift
+    EXTRA_ARGS=("$@")
 fi
 
-# --- 4. ENVIRONMENT SETUP ---
-# Clear AppImage noise to prevent "Unit Test" warnings and library crashes
+# --- 4. ENVIRONMENT CLEANUP (The Deck Fix) ---
+# We must remove AppImage paths and point specifically to Proton's libs
 unset LD_LIBRARY_PATH
 unset PYTHONHOME
 unset PYTHONPATH
 
-export STEAM_COMPAT_CLIENT_INSTALL_PATH="$HOME/.steam/steam"
-export STEAM_COMPAT_DATA_PATH="$PREFIX_PATH"
-export PROTON_NO_STEAM=1
-export PROTON_NO_ESYNC=1
-export PROTON_USE_WOW64=1
+# Required Proton/Wine Variables
+export WINEPREFIX="$PREFIX_PATH"
+export WINEDEBUG="-all"
+export WINEDLLPATH="$PROTON_DIR/files/lib64/wine:$PROTON_DIR/files/lib/wine"
+export LD_LIBRARY_PATH="$PROTON_DIR/files/lib64:$PROTON_DIR/files/lib:$LD_LIBRARY_PATH"
 
-# GE-Proton specifically looks for these to avoid the "Unit Test" skip
-export STAGING_SHARED_MEMORY=1
-export PROTON_DEBUG=1
+# Steam Deck Specifics
+export WINE_NTSYNC=1
+export DXVK_HUD=0
 
 # --- 5. EXECUTION ---
-if [ ! -f "$PROTON_PATH/proton" ]; then
-    echo "Error: Proton not found at $PROTON_PATH/proton"
+# Check if we should use wine64 or wine
+LAUNCHER="$WINE_64"
+if [ ! -f "$LAUNCHER" ]; then LAUNCHER="$WINE_BIN"; fi
+
+if [ ! -f "$LAUNCHER" ]; then
+    echo "Error: Wine not found at $LAUNCHER"
     exit 1
 fi
 
-# We use "run" as the first argument to the proton script, followed by our array
-exec "$PROTON_PATH/proton" run "${FINAL_ARGS[@]}"
+echo "Running: $CMD ${EXTRA_ARGS[*]}"
+exec "$LAUNCHER" "$CMD" "${EXTRA_ARGS[@]}"
