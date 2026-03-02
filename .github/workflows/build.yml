@@ -28,16 +28,19 @@ jobs:
           # 1. Get the full release JSON from GloriousEggroll
           RELEASE_JSON=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest)
 
-          # 2. Extract the Version Name (e.g., GE-Proton9-2) and save to Environment
-          GE_VERSION=$(echo "$RELEASE_JSON" | jq -r '.name' | tr ' ' '-')
+          # 2. Extract the actual filename (e.g., GE-Proton10-32.tar.gz)
+          FILE_NAME=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .name')
+
+          # 3. Strip the .tar.gz extension to get the base name (e.g., GE-Proton10-32)
+          GE_VERSION=${FILE_NAME%.tar.gz}
           echo "GE_VERSION=$GE_VERSION" >> $GITHUB_ENV
 
-          # 3. Extract the Download URL
+          # 4. Extract the Download URL
           URL=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url')
 
           echo "Downloading $GE_VERSION from: $URL"
 
-          # 4. Prepare directory and extract GE-Proton contents
+          # 5. Prepare directory and extract GE-Proton contents
           mkdir -p AppDir/opt/GE-Proton
           curl -L "$URL" | tar -xzC AppDir/opt/GE-Proton --strip-components=1
 
@@ -45,28 +48,27 @@ jobs:
         run: |
           chmod +x AppDir/AppRun
           chmod +x AppDir/run-proton
-          chmod +x ./appimagetool-x86_64.AppImage
+          # Ensure the tool exists or is downloaded if not part of your repo
+          # chmod +x ./appimagetool-x86_64.AppImage
 
       - name: Build AppImage
         shell: bash
         env:
           ARCH: x86_64
         run: |
-          # Build the AppImage using the version name captured earlier
+          # Build using the base filename + -standalone suffix
           ./appimagetool-x86_64.AppImage ./AppDir "${{ env.GE_VERSION }}-standalone.AppImage"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.GE_VERSION }}-Build
-          # Explicitly target the built file so the tool isn't zipped up
           path: ./${{ env.GE_VERSION }}-standalone.AppImage
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          # This specifically uploads only your new build to the release assets
           files: ./${{ env.GE_VERSION }}-standalone.AppImage
           name: Release ${{ env.GE_VERSION }}
           generate_release_notes: true
