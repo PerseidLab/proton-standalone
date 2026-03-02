@@ -17,10 +17,10 @@ You can pass any Windows executable as an argument:
 ``./ge-proton-*-standalone.AppImage path/to/game.exe``  
 
 - System Integration  
-This AppImage can integrate itself into your Linux desktop environment, allowing you to right-click any .exe and select "Open with GE-Proton."  
+This AppImage can integrate itself into your Linux desktop environment, allowing you to right-click any .exe and select "Open with Proton AppImage Launcher."  
 
 - Install Integration  
-To add GE-Proton to your system's MIME types and application menu:
+To add GE-Proton standalone AppImage to your system's MIME types and application menu:
 ``./ge-proton-*-standalone.AppImage --install``  
 This creates a desktop entry and associates .exe and .msi files with this AppImage.  
 
