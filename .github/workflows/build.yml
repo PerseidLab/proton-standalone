@@ -27,32 +27,31 @@ jobs:
       run: |
         TAG=${{ steps.geproton.outputs.tag }}
         echo "Downloading GE-Proton release $TAG"
-        # Choose appropriate asset, for example the tar.gz or zip archive:
         URL="https://github.com/GloriousEggroll/proton-ge-custom/releases/download/$TAG/GE-Proton-$TAG.tar.gz"
         curl -L -o ge-proton.tar.gz "$URL"
 
     - name: Extract GE-Proton into opt/
       run: |
+        TAG=${{ steps.geproton.outputs.tag }}
         rm -rf ./AppDir/opt/GE-Proton
         mkdir -p ./AppDir/opt
         tar -xzf ge-proton.tar.gz -C ./AppDir/opt
         mv ./AppDir/opt/GE-Proton-$TAG ./AppDir/opt/GE-Proton
 
-- name: Download appimagetool
-  run: |
-    curl -LO https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
-    chmod +x appimagetool-x86_64.AppImage
+    - name: Download appimagetool
+      run: |
+        curl -LO https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+        chmod +x appimagetool-x86_64.AppImage
 
     - name: Build AppImage
       run: |
-        ./appimagetool.AppImage ./AppDir
+        ./appimagetool-x86_64.AppImage ./AppDir
 
     - name: Rename AppImage with version
       run: |
         TAG=${{ steps.geproton.outputs.tag }}
         VERSION="${TAG#GE-Proton}"  # remove leading 'GE-Proton' if present
-        # Clean version string e.g. 10-29 -> 10.29
-        VERSION="${VERSION//-/.}"
+        VERSION="${VERSION//-/.}"   # convert dashes to dots
         NEW_NAME="ge-proton-${VERSION}-standalone.AppImage"
         mv ./AppDir.AppImage "./${NEW_NAME}"
         echo "AppImage renamed to $NEW_NAME"
