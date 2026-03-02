@@ -28,9 +28,10 @@ To clean up all shortcuts and file associations:
 ``./ge-proton-*-standalone.AppImage --uninstall``  
 
 ## **Technical Details**    
-- Prefix directory (protonprefix) will be created in the same location as the AppImage file.
+- Prefix directory (protonprefix) will be created in the same location as the AppImage file.  
 - MIME Handling: Updates xdg-mime and update-desktop-database during the --install process.  
-- Upstream: Based on [Proton-GE](https://github.com/GloriousEggroll/proton-ge-custom) by GloriousEggroll.
+- Do not move the AppImage location after ``--install`` because it'll break the integration. DO ``--uninstall`` first.  
+- Upstream: Based on [Proton-GE](https://github.com/GloriousEggroll/proton-ge-custom) by GloriousEggroll.  
 
 
 ## **Disclaimer**  
