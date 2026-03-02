@@ -16,7 +16,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libfuse2 file wget curl
-          # UPDATED: Using the new official appimagetool repository URL
           wget https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
 
@@ -32,27 +31,41 @@ jobs:
 
           echo "Downloading $GE_URL..."
           curl -Lo proton.tar.gz "$GE_URL"
-
-          # 3. Extract GE-Proton
           tar -xzf proton.tar.gz -C PortableProton.AppDir/opt/GE-Proton --strip-components=1
 
-          # 4. Copy your scripts and assets
-          cp AppRun PortableProton.AppDir/
+          # 3. GENERATE AppRun script automatically
+          cat <<EOF > PortableProton.AppDir/AppRun
+#!/bin/bash
+exec "\$(dirname "\$0")/run-proton" "\$@"
+EOF
+          chmod +x PortableProton.AppDir/AppRun
+
+          # 4. Copy your main script (run-proton) from repo
           cp run-proton PortableProton.AppDir/
-          cp run-proton.desktop PortableProton.AppDir/
-          # Ensure an icon exists so appimagetool doesn't complain
+          chmod +x PortableProton.AppDir/run-proton
+
+          # 5. GENERATE Desktop file automatically
+          cat <<EOF > PortableProton.AppDir/run-proton.desktop
+[Desktop Entry]
+Name=Portable Proton
+Exec=AppRun %f
+Icon=run-proton
+Type=Application
+Terminal=false
+Categories=Utility;
+MimeType=application/x-ms-dos-executable;
+EOF
+
+          # 6. Copy icon if it exists, otherwise use a placeholder
           if [ -f "run-proton.png" ]; then
             cp run-proton.png PortableProton.AppDir/
           else
             touch PortableProton.AppDir/run-proton.png
           fi
 
-          chmod +x PortableProton.AppDir/AppRun
-          chmod +x PortableProton.AppDir/run-proton
-
       - name: Build AppImage
         run: |
-          # Use --appimage-extract-and-run if FUSE is being finicky in the runner
+          # Use --appimage-extract-and-run for compatibility in GitHub environment
           ./appimagetool-x86_64.AppImage --appimage-extract-and-run PortableProton.AppDir Portable-Proton-x86_64.AppImage
 
       - name: Upload Artifact
