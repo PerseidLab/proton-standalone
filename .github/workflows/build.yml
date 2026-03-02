@@ -14,11 +14,12 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y libfuse2 curl jq tar gzip xz-utils imagemagick
+        run: sudo apt-get update && sudo apt-get install -y libfuse2 curl jq tar xz-utils imagemagick
 
       - name: Fetch latest GE-Proton release info
         id: geproton
         run: |
+          set -e
           GE_PROTON_API="https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
           response=$(curl -s $GE_PROTON_API)
           tag_name=$(echo "$response" | jq -r '.tag_name')
@@ -27,6 +28,7 @@ jobs:
       - name: Download latest GE-Proton release archive
         id: download
         run: |
+          set -e
           TAG=${{ steps.geproton.outputs.tag }}
           ASSET_URL=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/tags/$TAG \
             | jq -r '.assets[] | select(.name | test("GE-Proton.*\\.(tar\\.gz|tar\\.xz)")) | .browser_download_url')
@@ -39,6 +41,7 @@ jobs:
 
       - name: Extract GE-Proton into AppDir
         run: |
+          set -e
           rm -rf ./AppDir/opt/GE-Proton
           mkdir -p ./AppDir/opt
           ASSET_URL=${{ steps.download.outputs.asset_url }}
@@ -50,8 +53,9 @@ jobs:
             echo "Unknown archive format: $ASSET_URL"
             exit 1
           fi
-          EXTRACTED_DIR=$(ls ./AppDir/opt | head -n1)
-          mv "./AppDir/opt/$EXTRACTED_DIR" ./AppDir/opt/GE-Proton
+          # Find the extracted directory
+          EXTRACTED_DIR=$(find ./AppDir/opt -mindepth 1 -maxdepth 1 -type d | head -n1)
+          mv "$EXTRACTED_DIR" ./AppDir/opt/GE-Proton
 
       - name: Add .desktop file
         run: |
@@ -65,10 +69,17 @@ Icon=run-proton
 Categories=Utility;
 EOF
 
-      - name: Ensure launcher exists and icon present
+      - name: Create launcher and icon
         run: |
+          mkdir -p AppDir
+          # Create simple launcher if missing
+          cat > AppDir/run-proton <<'EOF'
+#!/bin/bash
+DIR="$(dirname "$0")"
+"$DIR/opt/GE-Proton/proton" "$@"
+EOF
           chmod +x AppDir/run-proton
-          # Make sure run-proton.png exists
+          # Create placeholder icon if missing
           if [ ! -f AppDir/run-proton.png ]; then
             convert -size 256x256 xc:gray AppDir/run-proton.png
           fi
@@ -79,19 +90,19 @@ EOF
           chmod +x appimagetool-x86_64.AppImage
 
       - name: Build AppImage
-        run: ARCH=x86_64 ./appimagetool-x86_64.AppImage ./AppDir
+        run: ./appimagetool-x86_64.AppImage ./AppDir
 
       - name: Rename AppImage with version
         run: |
           TAG=${{ steps.geproton.outputs.tag }}
           VERSION="${TAG#GE-Proton}"
           VERSION="${VERSION//-/.}"
-          NEW_NAME="ge-proton-${VERSION}-standalone.AppImage"
-          GENERATED=$(ls ./AppDir-*.AppImage | head -n1)
+          GENERATED=$(ls ./AppDir*.AppImage | head -n1)
           if [[ -z "$GENERATED" ]]; then
             echo "Error: AppImage not found!"
             exit 1
           fi
+          NEW_NAME="ge-proton-${VERSION}-standalone.AppImage"
           mv "$GENERATED" "./${NEW_NAME}"
           echo "AppImage renamed to $NEW_NAME"
 
