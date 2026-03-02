@@ -22,19 +22,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y fuse libfuse2 desktop-file-utils binutils curl jq tar
 
-      - name: Fetch Latest GE-Proton
+      - name: Fetch Latest GE-Proton and Get Version
+        id: get_version
         run: |
-          # 1. Create the target directory
+          # 1. Get the full release JSON to extract both the version name and the URL
+          RELEASE_JSON=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest)
+
+          # 2. Extract the Version Name (e.g., GE-Proton9-2)
+          GE_VERSION=$(echo "$RELEASE_JSON" | jq -r '.name')
+          echo "GE_VERSION=$GE_VERSION" >> $GITHUB_ENV
+
+          # 3. Extract the Download URL
+          URL=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url')
+
+          echo "Downloading $GE_VERSION from: $URL"
+
+          # 4. Prepare directory and extract
           mkdir -p AppDir/opt/GE-Proton
-
-          # 2. Get the download URL for the latest release asset ending in .tar.gz
-          URL=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest \
-                | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url')
-
-          echo "Downloading latest GE-Proton from: $URL"
-
-          # 3. Download and extract directly into opt/GE-Proton
-          # --strip-components=1 removes the top-level folder from the archive (e.g., GE-Proton9-2/)
           curl -L "$URL" | tar -xzC AppDir/opt/GE-Proton --strip-components=1
 
       - name: Prepare Permissions
@@ -48,17 +52,19 @@ jobs:
         env:
           ARCH: x86_64
         run: |
-          ./appimagetool-x86_64.AppImage ./AppDir GE-Proton-Standalone-x86_64.AppImage
+          # We use the $GE_VERSION variable we saved earlier to name the file
+          ./appimagetool-x86_64.AppImage ./AppDir "${{ env.GE_VERSION }}-standalone.AppImage"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Proton-Standalone-Build
-          path: ./GE-Proton-Standalone-x86_64.AppImage
+          name: ${{ env.GE_VERSION }}-Build
+          path: ./*.AppImage
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: ./GE-Proton-Standalone-x86_64.AppImage
+          files: ./*.AppImage
+          name: Release ${{ env.GE_VERSION }}
           generate_release_notes: true
