@@ -3,6 +3,10 @@ name: Build GE-Proton AppImage
 on:
   push:
     branches: [ "main", "master" ]
+    paths-ignore:
+      - 'README.md'
+      - 'LICENSE'
+      - '.gitignore'
   schedule:
     - cron: '0 */6 * * *'  # Runs every 6 hours
   workflow_dispatch:
@@ -26,27 +30,30 @@ jobs:
       - name: Check if update is needed
         id: check_version
         run: |
+          # Use GITHUB_TOKEN to prevent 'null' results from rate limiting
+          AUTH="Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}"
+
           # 1. Get the latest version from GloriousEggroll
-          GE_RELEASE=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest)
+          GE_RELEASE=$(curl -s -H "$AUTH" https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest)
           GE_VERSION=$(echo "$GE_RELEASE" | jq -r '.tag_name')
 
-          # 2. Check your own latest release tag
-          # We use || true so it doesn't fail if you have 0 releases
-          MY_RELEASE=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest)
-          MY_VERSION=$(echo "$MY_RELEASE" | jq -r '.tag_name' || echo "none")
+          # 2. Check your own releases (using the list endpoint is more reliable)
+          MY_RELEASE=$(curl -s -H "$AUTH" https://api.github.com/repos/${{ github.repository }}/releases)
+          MY_VERSION=$(echo "$MY_RELEASE" | jq -r '.[0].tag_name // "none"')
 
           echo "Latest GE-Proton: $GE_VERSION"
           echo "Your Latest Release: $MY_VERSION"
 
-          if [[ "$MY_VERSION" == "$GE_VERSION"* ]]; then
-            echo "Already up to date. Skipping build."
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
+          # Only proceed if versions don't match AND GE_VERSION isn't null
+          if [[ "$GE_VERSION" != "null" && "$MY_VERSION" != "$GE_VERSION" ]]; then
             echo "New version found! Starting build..."
             echo "skip=false" >> $GITHUB_OUTPUT
             echo "GE_VERSION=$GE_VERSION" >> $GITHUB_ENV
             echo "DOWNLOAD_URL=$(echo "$GE_RELEASE" | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url')" >> $GITHUB_ENV
             echo "FINAL_NAME=${GE_VERSION}-standalone.AppImage" >> $GITHUB_ENV
+          else
+            echo "Already up to date or API error. Skipping build."
+            echo "skip=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Fetch and Extract GE-Proton
@@ -58,12 +65,14 @@ jobs:
       - name: Build AppImage
         if: steps.check_version.outputs.skip != 'true'
         run: |
+          # This uses the appimagetool you already have in your repo
           chmod +x appimagetool-x86_64.AppImage
           ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir
 
       - name: Rename Output Safely
         if: steps.check_version.outputs.skip != 'true'
         run: |
+          # Find the new AppImage while ignoring your committed tool
           GENERATED_FILE=$(find . -maxdepth 1 -name "*.AppImage" ! -name "appimagetool-x86_64.AppImage" -print -quit)
           mv "$GENERATED_FILE" "${{ env.FINAL_NAME }}"
 
