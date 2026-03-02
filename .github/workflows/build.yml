@@ -1,61 +1,43 @@
-name: Build Portable Proton AppImage
+name: Build AppImage
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main  # Set this to the branch you want to build from, like "main" or "master"
+    tags:
+      - 'v*'   # Optional: Builds on every version tag (e.g., v1.0)
   pull_request:
-    branches: [ main ]
-  workflow_dispatch:
+    branches:
+      - main
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build-appimage:
+    runs-on: ubuntu-22.04  # Standard environment for AppImage builds
+
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Dependencies
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfuse2 kpartx desktop-file-utils
+          sudo apt-get install -y appstream desktop-file-utils libc-bin # System deps for appimage-builder
+          pip install appimage-builder
 
-      - name: Prepare AppDir
-        run: |
-          # Ensure AppDir exists and has correct structure based on your screenshot
-          mkdir -p AppDir/opt
-
-          # If your local files aren't already in AppDir, move them here
-          # We ensure the script is named 'AppRun' at the root for AppImage standard
-          cp run-proton AppDir/AppRun
-          chmod +x AppDir/AppRun
-
-          # Copy resources
-          cp run-proton.desktop AppDir/
-          cp run-proton.png AppDir/
-
-          # Ensure GE-Proton is in the correct place inside AppDir
-          # If it's outside in your repo, move it in:
-          [ -d "opt/GE-Proton" ] && cp -r opt/GE-Proton AppDir/opt/
-
-      - name: Download AppImageTool
-        run: |
-          wget https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage
-          chmod +x appimagetool-x86_64.AppImage
-
+      # This step builds the AppImage using your configuration.
       - name: Build AppImage
-        run: |
-          # ARCH is required by appimagetool
-          export ARCH=x86_64
-          ./appimagetool-x86_64.AppImage AppDir Portable_Proton-x86_64.AppImage
+        run: appimage-builder --skip-tests
+        # Optional: You might need to change 'appimage-builder --skip-tests'
+        # to just 'appimage-builder' if you have tests defined.
 
+      # Uploads the final build artifact so you can download it.
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Portable-Proton-AppImage
-          path: Portable_Proton-x86_64.AppImage
-
-      - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
-        with:
-          files: Portable_Proton-x86_64.AppImage
+          name: my-app-AppImage # Give the artifact a clear name
+          path: '*.AppImage'    # Collects any AppImage file created in the root
