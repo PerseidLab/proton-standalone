@@ -13,6 +13,9 @@ jobs:
     - name: Checkout your repo
       uses: actions/checkout@v3
 
+    - name: Install dependencies (FUSE2)
+      run: sudo apt-get update && sudo apt-get install -y libfuse2 curl jq tar gzip xz-utils
+
     - name: Fetch latest GE-Proton release info
       id: geproton
       run: |
@@ -62,8 +65,7 @@ jobs:
         chmod +x appimagetool-x86_64.AppImage
 
     - name: Build AppImage
-      run: |
-        ./appimagetool-x86_64.AppImage ./AppDir
+      run: ./appimagetool-x86_64.AppImage ./AppDir
 
     - name: Rename AppImage with version
       run: |
