@@ -2,7 +2,7 @@ name: Build GE-Proton Standalone AppImage
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 0 * * *'   # daily at midnight UTC
   workflow_dispatch:
 
 jobs:
@@ -14,7 +14,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y libfuse2 curl jq tar gzip xz-utils imagemagick
+        run: sudo apt-get update && sudo apt-get install -y libfuse2 curl jq tar gzip xz-utils
 
       - name: Fetch latest GE-Proton release info
         id: geproton
@@ -53,22 +53,26 @@ jobs:
           EXTRACTED_DIR=$(ls ./AppDir/opt | head -n1)
           mv "./AppDir/opt/$EXTRACTED_DIR" ./AppDir/opt/GE-Proton
 
-      - name: Add placeholder Wine icon
-        run: |
-          mkdir -p AppDir
-          curl -L -o AppDir/wine.png https://raw.githubusercontent.com/wine-mirror/wine/master/dlls/wine/wine.png
-
       - name: Add .desktop file
         run: |
           mkdir -p AppDir
-          cat > AppDir/portable-proton.desktop <<EOF
+          cat > AppDir/run-proton.desktop <<EOF
 [Desktop Entry]
 Type=Application
 Name=Portable Proton
 Exec=run-proton
-Icon=wine
+Icon=run-proton
 Categories=Utility;
 EOF
+
+      - name: Ensure launcher exists
+        run: |
+          chmod +x AppDir/run-proton
+          # make sure run-proton.png exists
+          if [ ! -f AppDir/run-proton.png ]; then
+            # fallback placeholder icon
+            convert -size 256x256 xc:gray AppDir/run-proton.png
+          fi
 
       - name: Download appimagetool
         run: |
