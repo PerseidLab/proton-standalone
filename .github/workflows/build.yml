@@ -16,7 +16,7 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y desktop-file-utils libgdk-pixbuf2.0-dev fakeroot binutils
+          sudo apt-get install -y desktop-file-utils libgdk-pixbuf2.0-dev fakeroot binutils appstream
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -26,26 +26,25 @@ jobs:
       - name: Install appimage-builder
         run: pip install appimage-builder
 
-      - name: Fix Permissions
+      - name: Prepare AppDir Permissions
         run: |
-          # Ensure the scripts in AppDir are actually executable
+          # Ensure all scripts and binaries are executable before building
           chmod +x AppDir/AppRun
           chmod +x AppDir/run-proton
-          # If you have binaries in opt, make them executable too
-          find AppDir/opt -type f -exec chmod +x {} + || true
+          # Create a symlink for bash to satisfy the builder's check
+          mkdir -p AppDir/bin
+          ln -s /bin/bash AppDir/bin/bash
 
       - name: Build AppImage
         shell: bash
         env:
-          # Explicitly set the architecture for the builder
+          # Force the architecture environment variable
           ARCH: x86_64
-          UPDATE_INFO: none
         run: |
-          # No --recipe needed now since it's named AppImageBuilder.yml
           appimage-builder --skip-tests
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Proton-AppImage
+          name: Proton-Standalone-AppImage
           path: ./*.AppImage

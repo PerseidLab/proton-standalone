@@ -1,36 +1,34 @@
 version: 1
 
-# Identification of your application
 AppDir:
   path: ./AppDir
-  # Use the data found in your AppDir to configure the AppImage metadata
   app_info:
-    id: org.myproject.app        # Choose a unique app ID (reverse-DNS style)
-    name: "My App Name"         # The human-readable name of your application
-    icon: run-proton            # The name of the icon file in AppDir (without extension)
-    version: '1.0.0'            # Set your application version
-    exec: opt/bin/myapp         # Path to the application executable *relative to AppDir*
-                                # You might need to change this if 'opt' contains the binary.
-                                # Check your 'opt' folder contents.
-    # Alternatively, you can point 'exec' to your 'AppRun' script.
-    # exec: AppRun
+    id: ge.proton.standalone
+    name: GE-Proton-Standalone
+    icon: run-proton
+    version: latest
+    # This must match your main execution script in AppDir
+    exec: run-proton
+    exec_args: $@
 
-  # (Advanced/Optional) If your application needs custom runtime environment variables, set them here.
-  # runtime:
-  #   env:
-  #     WINEPREFIX: "$APPDIR/proton-prefix"
+  runtime:
+    # MANDATORY: This stops the "Unable to determine architecture" error
+    architecture: x86_64
+    env:
+      # Ensures the AppImage can find its internal files and system bash
+      PATH: '$PATH:$APPDIR/bin:$APPDIR/usr/bin'
+      WINEPREFIX: '$APPDIR/proton-prefix'
 
-  # (Advanced/Optional) Advanced configuration if your app has apt dependencies.
-  # apt:
-  #   arch: amd64
-  #   sources:
-  #     - sourceline: 'deb http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse'
-  #   include:
-  #     - some-library
-  #     - some-other-dep
+  # If your app requires specific Ubuntu packages, list them here
+  apt:
+    arch: amd64
+    sources:
+      - sourceline: 'deb http://archive.ubuntu.com/ubuntu/ jammy main restricted universe'
+    include:
+      - libc6
+      - libstdc++6
 
 AppImage:
-  # Configuration for the output AppImage file
-  update-information: 'none' # Change this to enable automatic updates
-  sign-key: 'none'           # Change this to sign your AppImage
-  arch: x86_64               # Set the architecture for the AppImage
+  update-information: 'none'
+  sign-key: 'none'
+  arch: x86_64
