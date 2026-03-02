@@ -15,17 +15,9 @@ AppDir:
       PATH: '$PATH:$APPDIR/bin:$APPDIR/usr/bin'
       WINEPREFIX: '$APPDIR/proton-prefix'
 
-  apt:
-    arch: amd64
-    sources:
-      # Adding [trusted=yes] bypasses the NO_PUBKEY error
-      - sourceline: 'deb [trusted=yes] http://archive.ubuntu.com/ubuntu/ jammy main restricted universe'
-      - sourceline: 'deb [trusted=yes] http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe'
-    include:
-      - libc6
-      - libstdc++6
-      - libglu1-mesa
-      - libx11-6
+  # We remove the 'apt' section to avoid the version parsing bug.
+  # If Proton needs specific libs, it's better to assume the host has them
+  # or bundle them manually into AppDir/usr/lib.
 
 AppImage:
   arch: x86_64

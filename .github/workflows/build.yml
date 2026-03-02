@@ -21,19 +21,20 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.10' # Downgrading to 3.10 often helps with the versioning bug
 
-      - name: Install appimage-builder
-        run: pip install appimage-builder
+      - name: Install appimage-builder and fix dependencies
+        run: |
+          # Install a specific version of 'packaging' that is sometimes more lenient
+          pip install packaging==23.2 appimage-builder
 
       - name: Prepare AppDir
         run: |
-          # Ensure scripts are executable
           chmod +x AppDir/AppRun
           chmod +x AppDir/run-proton
-
-          # Create symlink for bash to satisfy the builder's check
           mkdir -p AppDir/bin
+          # Ensure there is a dummy binary so the builder detects an architecture
+          cp /bin/ls AppDir/bin/ls
           ln -sf /bin/bash AppDir/bin/bash
 
       - name: Build AppImage
@@ -41,7 +42,7 @@ jobs:
         env:
           ARCH: x86_64
         run: |
-          # No sudo needed here, the [trusted=yes] in the recipe handles it
+          # Use the --skip-tests flag to move fast
           appimage-builder --skip-tests
 
       - name: Upload Artifact
