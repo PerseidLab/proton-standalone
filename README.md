@@ -15,16 +15,16 @@ By default, running the AppImage will launch the Wine file explorer within the G
 You can pass any Windows executable as an argument:  
 ``./ge-proton-*-standalone.AppImage path/to/game.exe``  
 
-- System Integration  
+**System Integration**    
 This AppImage can integrate itself into your Linux desktop environment, allowing you to right-click any .exe and select "Open with Proton AppImage Launcher."  
 
-- Install Integration  
-To add GE-Proton standalone AppImage to your system's MIME types and application menu:
+**Install Integration**    
+To add GE-Proton standalone AppImage to your system's MIME types and application menu:  
 ``./ge-proton-*-standalone.AppImage --install``  
 This creates a desktop entry and associates .exe and .msi files with this AppImage.  
 
-- Uninstall Integration  
-To clean up all shortcuts and file associations:
+**Uninstall Integration**    
+To clean up all shortcuts and file associations:  
 ``./ge-proton-*-standalone.AppImage --uninstall``  
 
 **Technical Details**    
