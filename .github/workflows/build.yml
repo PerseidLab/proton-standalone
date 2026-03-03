@@ -84,6 +84,7 @@ jobs:
             Automated standalone build of ${{ env.GE_VERSION }}
             
             This Proton build runs in WoW64 mode.
+            
             Source: [GloriousEggroll/proton-ge-custom](https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/${{ env.GE_VERSION }})
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
