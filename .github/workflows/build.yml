@@ -78,6 +78,6 @@ jobs:
           tag_name: ${{ env.GE_VERSION }}
           name: Release ${{ env.GE_VERSION }} Standalone AppImage
           files: "${{ env.FINAL_NAME }}"
-          body: "Automated standalone build of ${{ env.GE_VERSION }}"
+          body: "Automated standalone build of ${{ env.GE_VERSION }}/n/nThis proton run in WoW64 mode."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
