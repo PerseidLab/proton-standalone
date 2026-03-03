@@ -118,10 +118,13 @@ export STEAM_COMPAT_CLIENT_INSTALL_PATH="$HERE"
 export PROTON_DISABLE_LSTEAMCLIENT=1
 export PROTON_NO_STEAM=1
 export PROTON_USE_WOW64=1
+export PROTON_MEDIA_USE_GST=1
 export SDL_JOYSTICK_HIDAPI=0
 export SDL_HINT_JOYSTICK_HIDAPI=0
 
-export GST_PLUGIN_SYSTEM_PATH_1_0="$HERE/opt/GE-Proton/files/lib/i386-linux-gnu/gstreamer-1.0/:$HERE/opt/GE-Proton/files/lib/x86_64-linux-gnu/gstreamer-1.0/"
+export GST_PLUGIN_SYSTEM_PATH_1_0="$HERE/opt/GE-Proton/files/lib/i386-linux-gnu/gstreamer-1.0/:$HERE/opt/GE-Proton/files/lib/x86_64-linux-gnu/gstreamer-1.0/:$HERE/opt/GE-Proton/files/lib/gstreamer-1.0/:$HERE/opt/GE-Proton/files/lib64/gstreamer-1.0/:$HERE/gstreamer-1.0/x86_64/:$HERE/gstreamer-1.0/i386/"
+mkdir -p "$PROTON_PREFIX/gstreamer-1.0/"
+export WINE_GST_REGISTRY_DIR="$PROTON_PREFIX/gstreamer-1.0/"
 
 export PROTON_NO_ESYNC=0
 export WINEESYNC=1
