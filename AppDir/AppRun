@@ -127,6 +127,36 @@ export GST_PLUGIN_SYSTEM_PATH_1_0="$HERE/opt/GE-Proton/files/lib/i386-linux-gnu/
 mkdir -p "$PROTON_PREFIX/gstreamer-1.0/"
 export WINE_GST_REGISTRY_DIR="$PROTON_PREFIX/gstreamer-1.0/"
 
+# Define potential Steam installation roots (Standard, Flatpak, and umu)
+PATHS=(
+    "$HOME/.steam/steam/steamapps/common/SteamLinuxRuntime_sniper/"
+    "$HOME/.var/app/com.valvesoftware.Steam/.steam/steam/steamapps/common/SteamLinuxRuntime_sniper/"
+    "$HOME/.local/share/umu/"
+)
+
+# Find the first path that actually exists
+SLR_ROOT=""
+for path in "${PATHS[@]}"; do
+    if [ -d "$path" ]; then
+        SLR_ROOT="$path"
+        break
+    fi
+done
+
+# Initialize SLR_LIBS
+SLR_LIBS=""
+
+if [ -n "$SLR_ROOT" ]; then
+    echo "Found Steam Linux Runtime (or equivalent) at: $SLR_ROOT"
+    # Search for i386-linux-gnu folders and extract all unique subdirs containing .so files
+    SL_SEARCH_RESULT=$(find "$SLR_ROOT" -type d -name "i386-linux-gnu" -exec find {} -name "*.so*" -printf '%h\n' \; 2>/dev/null | sort -u | tr '\n' ':')
+    SLR_LIBS="$SL_SEARCH_RESULT"
+else
+    echo "Warning: SteamLinuxRuntime_sniper/umu not found. Using system libraries..."
+fi
+
+export LD_LIBRARY_PATH="$SLR_LIBS$LD_LIBRARY_PATH"
+
 export PROTON_NO_ESYNC=0
 export WINEESYNC=1
 export PROTON_NO_FSYNC=0
