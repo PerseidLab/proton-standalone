@@ -1,7 +1,6 @@
 name: Build GE-Proton AppImage
 
 on:
-
   schedule:
     - cron: '0 */6 * * *'  # Runs every 6 hours
   workflow_dispatch:
@@ -22,33 +21,35 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libfuse2 jq tar wget
 
-      - name: Check if update is needed
+      - name: Check if Tag Exists
         id: check_version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Use GITHUB_TOKEN to prevent 'null' results from rate limiting
-          AUTH="Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}"
+          # 1. Get the latest release tag from GloriousEggroll
+          GE_RELEASE_JSON=$(gh api repos/GloriousEggroll/proton-ge-custom/releases/latest)
+          GE_VERSION=$(echo "$GE_RELEASE_JSON" | jq -r '.tag_name')
 
-          # 1. Get the latest version from GloriousEggroll
-          GE_RELEASE=$(curl -s -H "$AUTH" https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest)
-          GE_VERSION=$(echo "$GE_RELEASE" | jq -r '.tag_name')
+          if [ -z "$GE_VERSION" ] || [ "$GE_VERSION" == "null" ]; then
+            echo "Error: Could not fetch GE-Proton version."
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
 
-          # 2. Check your own releases (using the list endpoint is more reliable)
-          MY_RELEASE=$(curl -s -H "$AUTH" https://api.github.com/repos/${{ github.repository }}/releases)
-          MY_VERSION=$(echo "$MY_RELEASE" | jq -r '.[0].tag_name // "none"')
-
-          echo "Latest GE-Proton: $GE_VERSION"
-          echo "Your Latest Release: $MY_VERSION"
-
-          # Only proceed if versions don't match AND GE_VERSION isn't null
-          if [[ "$GE_VERSION" != "null" && "$MY_VERSION" != "$GE_VERSION" ]]; then
-            echo "New version found! Starting build..."
+          # 2. Check if this specific tag already exists in YOUR repository
+          # We check the git ref directly; if it returns 404, the tag is new to us.
+          if gh api repos/${{ github.repository }}/git/ref/tags/$GE_VERSION --silent > /dev/null 2>&1; then
+            echo "Tag $GE_VERSION already exists in this repo. Skipping build."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "New tag $GE_VERSION detected! Preparing build..."
             echo "skip=false" >> $GITHUB_OUTPUT
             echo "GE_VERSION=$GE_VERSION" >> $GITHUB_ENV
-            echo "DOWNLOAD_URL=$(echo "$GE_RELEASE" | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url')" >> $GITHUB_ENV
+            
+            # Extract the download URL for the .tar.gz asset from the GE release
+            DOWNLOAD_URL=$(echo "$GE_RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url')
+            echo "DOWNLOAD_URL=$DOWNLOAD_URL" >> $GITHUB_ENV
             echo "FINAL_NAME=${GE_VERSION}-standalone.AppImage" >> $GITHUB_ENV
-          else
-            echo "Already up to date or API error. Skipping build."
-            echo "skip=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Fetch and Extract GE-Proton
@@ -60,14 +61,15 @@ jobs:
       - name: Build AppImage
         if: steps.check_version.outputs.skip != 'true'
         run: |
-          # This uses the appimagetool you already have in your repo
+          # Ensure the tool is executable
           chmod +x appimagetool-x86_64.AppImage
+          # Build the AppImage using the extracted content in AppDir
           ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir
 
       - name: Rename Output Safely
         if: steps.check_version.outputs.skip != 'true'
         run: |
-          # Find the new AppImage while ignoring your committed tool
+          # Find the newly generated AppImage while ignoring the build tool
           GENERATED_FILE=$(find . -maxdepth 1 -name "*.AppImage" ! -name "appimagetool-x86_64.AppImage" -print -quit)
           mv "$GENERATED_FILE" "${{ env.FINAL_NAME }}"
 
@@ -78,6 +80,10 @@ jobs:
           tag_name: ${{ env.GE_VERSION }}
           name: Release ${{ env.GE_VERSION }} Standalone AppImage
           files: "${{ env.FINAL_NAME }}"
-          body: "Automated standalone build of ${{ env.GE_VERSION }}\n\nThis proton run in WoW64 mode."
+          body: |
+            Automated standalone build of ${{ env.GE_VERSION }}
+            
+            This Proton build runs in WoW64 mode.
+            Source: [GloriousEggroll/proton-ge-custom](https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/${{ env.GE_VERSION }})
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
