@@ -1,0 +1,61 @@
+name: Build GE-Proton AppImage (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ge_version:
+        description: 'Version Name (e.g., GE-Proton9-23)'
+        required: true
+        default: 'GE-Proton-Custom'
+      download_url:
+        description: 'Direct link to the .tar.gz file'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2 jq tar wget
+
+      - name: Set Environment Variables
+        run: |
+          echo "GE_VERSION=${{ github.event.inputs.ge_version }}" >> $GITHUB_ENV
+          echo "DOWNLOAD_URL=${{ github.event.inputs.download_url }}" >> $GITHUB_ENV
+          echo "FINAL_NAME=${{ github.event.inputs.ge_version }}-standalone.AppImage" >> $GITHUB_ENV
+
+      - name: Fetch and Extract GE-Proton
+        run: |
+          mkdir -p AppDir/opt/GE-Proton
+          wget -qO- "${{ env.DOWNLOAD_URL }}" | tar -xz -C AppDir/opt/GE-Proton --strip-components=1
+
+      - name: Build AppImage
+        run: |
+          chmod +x appimagetool-x86_64.AppImage
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir
+
+      - name: Rename Output Safely
+        run: |
+          # Find the new AppImage while ignoring the committed tool
+          GENERATED_FILE=$(find . -maxdepth 1 -name "*.AppImage" ! -name "appimagetool-x86_64.AppImage" -print -quit)
+          mv "$GENERATED_FILE" "${{ env.FINAL_NAME }}"
+
+      - name: Create Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.GE_VERSION }}
+          name: Release ${{ env.GE_VERSION }}
+          files: "${{ env.FINAL_NAME }}"
+          body: "Manual standalone build of ${{ env.GE_VERSION }}\nSource: ${{ env.DOWNLOAD_URL }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
