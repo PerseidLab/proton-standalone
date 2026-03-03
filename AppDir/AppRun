@@ -52,6 +52,26 @@ Terminal=false
 Categories=Utility;
 EOF
 
+cat <<EOF > "$APPS_DIR/proton-cmd.desktop"
+[Desktop Entry]
+Name=Proton Command Prompt
+Exec="$APPIMAGE_PATH" cmd
+Icon=utilities-terminal
+Type=Application
+Terminal=false
+Categories=Utility;
+EOF
+
+    cat <<EOF > "$APPS_DIR/proton-control.desktop"
+[Desktop Entry]
+Name=Proton Control Panel
+Exec="$APPIMAGE_PATH" control
+Icon=preferences-system
+Type=Application
+Terminal=false
+Categories=Utility;
+EOF
+
     chmod +x "$APPS_DIR"/run-proton.desktop "$APPS_DIR"/proton-explorer.desktop "$APPS_DIR"/proton-winecfg.desktop "$APPS_DIR"/proton-reboot.desktop
     xdg-mime default run-proton.desktop application/x-ms-dos-executable
     xdg-mime default run-proton.desktop application/x-msi
@@ -62,7 +82,7 @@ EOF
 
 elif [[ "$1" == "--uninstall" ]]; then
     echo "Removing shortcuts and resetting MIME types..."
-    rm -f "$APPS_DIR/run-proton.desktop" "$APPS_DIR/proton-explorer.desktop" "$APPS_DIR/proton-winecfg.desktop" "$APPS_DIR/proton-reboot.desktop"
+    rm -f "$APPS_DIR/run-proton.desktop" "$APPS_DIR/proton-explorer.desktop" "$APPS_DIR/proton-winecfg.desktop" "$APPS_DIR/proton-reboot.desktop" "$APPS_DIR/proton-cmd.desktop" "$APPS_DIR/proton-control.desktop"
     xdg-mime uninstall "$APPS_DIR/run-proton.desktop" 2>/dev/null
     update-desktop-database "$APPS_DIR" 2>/dev/null
     echo "Uninstallation complete!"
