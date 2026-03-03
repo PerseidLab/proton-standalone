@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       ge_version:
-        description: 'GE-Proton9-27'
+        description: 'Version Name (e.g., GE-Proton9-23)'
         required: true
         default: 'GE-Proton-Custom'
       download_url:
-        description: 'https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton9-27/GE-Proton9-27.tar.gz'
+        description: 'Direct link to the .tar.gz file'
         required: true
 
 permissions:
@@ -54,7 +54,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.GE_VERSION }}
-          name: Release ${{ env.GE_VERSION }}
+          name: Release ${{ env.GE_VERSION }} Standalone AppImage
           files: "${{ env.FINAL_NAME }}"
           body: "Manual standalone build of ${{ env.GE_VERSION }}\nSource: ${{ env.DOWNLOAD_URL }}"
         env:
