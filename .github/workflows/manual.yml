@@ -56,6 +56,6 @@ jobs:
           tag_name: ${{ env.GE_VERSION }}
           name: Release ${{ env.GE_VERSION }} Standalone AppImage
           files: "${{ env.FINAL_NAME }}"
-          body: "Manual standalone build of ${{ env.GE_VERSION }}\nSource: ${{ env.DOWNLOAD_URL }}"
+          body: "Manual standalone build of ${{ env.GE_VERSION }}\n\nSource: ${{ env.DOWNLOAD_URL }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
