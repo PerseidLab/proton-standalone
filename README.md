@@ -34,6 +34,7 @@ To clean up all shortcuts and file associations:
 - Upstream: Based on [Proton-GE](https://github.com/GloriousEggroll/proton-ge-custom) by GloriousEggroll.  
 
 
-## **Disclaimer**    
+## **Disclaimer**  
+This AppImage can't be run with Steam Linux Runtime and umu-launcher.  
 This project is for educational purposes only, so there might not be any updates.  
 This is a community packaging project. All credit for the development of Proton-GE goes to Thomas "GloriousEggroll" Crider and the Valve/Wine contributors. Please do not report issues related to this AppImage wrapper to the official GE-Proton repository.
