@@ -1,12 +1,15 @@
 #!/bin/bash
 
-# 1. Define Paths immediately (needed for --install/--uninstall)
 HERE="$(dirname "$(readlink -f "${0}")")"
-APPIMAGE_PATH="${APPIMAGE:-$(readlink -f "$0")}"
+
+APPIMAGE_PATH="$APPIMAGE"
+if [ -z "$APPIMAGE_PATH" ]; then
+    APPIMAGE_PATH="$(readlink -f "$0")"
+fi
+
 APPIMAGE_DIR="$(dirname "$APPIMAGE_PATH")"
 APPS_DIR="$HOME/.local/share/applications"
 
-# --- 2. Installation / Uninstallation Logic ---
 if [[ "$1" == "--install" ]]; then
     mkdir -p "$APPS_DIR"
     echo "Installing desktop shortcuts and MIME types..."
@@ -72,46 +75,73 @@ Terminal=false
 Categories=Utility;
 EOF
 
-    chmod +x "$APPS_DIR"/run-proton.desktop "$APPS_DIR"/proton-explorer.desktop "$APPS_DIR"/proton-winecfg.desktop "$APPS_DIR"/proton-reboot.desktop
-    xdg-mime default run-proton.desktop application/x-ms-dos-executable
-    xdg-mime default run-proton.desktop application/x-msi
-    xdg-mime default run-proton.desktop application/x-msdownload
+    chmod +x "$APPS_DIR"/*.desktop
     update-desktop-database "$APPS_DIR" 2>/dev/null
     echo "Installation complete!"
     exit 0
 
 elif [[ "$1" == "--uninstall" ]]; then
-    echo "Removing shortcuts and resetting MIME types..."
-    rm -f "$APPS_DIR/run-proton.desktop" "$APPS_DIR/proton-explorer.desktop" "$APPS_DIR/proton-winecfg.desktop" "$APPS_DIR/proton-reboot.desktop" "$APPS_DIR/proton-cmd.desktop" "$APPS_DIR/proton-control.desktop"
-    xdg-mime uninstall "$APPS_DIR/run-proton.desktop" 2>/dev/null
+    echo "Removing shortcuts..."
+    rm -f "$APPS_DIR"/proton-*.desktop "$APPS_DIR/run-proton.desktop"
     update-desktop-database "$APPS_DIR" 2>/dev/null
     echo "Uninstallation complete!"
     exit 0
 fi
 
-# --- 3. Default Argument Logic ---
 if [ -z "$1" ]; then
     set -- "explorer"
 fi
 
-# --- NEW: Path Resolution Logic ---
-# If the first argument is a file (or a link to a file), resolve its real path.
 if [ -f "$1" ]; then
     REAL_PATH=$(readlink -f "$1")
-    # Shift the old path out and set the real path as the first argument
     shift
     set -- "$REAL_PATH" "$@"
     echo "Resolved shortcut/link to: $REAL_PATH"
 fi
 
-# 4. Define Prefix Path
 PROTON_PREFIX="$APPIMAGE_DIR/protonprefix"
+EXTRACT_DIR="$PROTON_PREFIX/appimage-root"
+VERSION_FILE="$EXTRACT_DIR/.appimage_hash"
 
-# 5. Internal Paths
-INTERNAL_PROTON_BASE="$HERE/opt/GE-Proton"
+if [[ "$HERE" == /tmp/.mount_* ]]; then
+    echo "Running from AppImage mount."
+
+    mkdir -p "$PROTON_PREFIX"
+
+    CURRENT_HASH="$(sha256sum "$APPIMAGE_PATH" | awk '{print $1}')"
+
+    if [[ -f "$VERSION_FILE" ]]; then
+        STORED_HASH="$(cat "$VERSION_FILE")"
+    else
+        STORED_HASH=""
+    fi
+
+    if [[ "$CURRENT_HASH" != "$STORED_HASH" ]]; then
+        echo "Extracting AppImage into persistent prefix..."
+
+        rm -rf "$EXTRACT_DIR"
+        mkdir -p "$EXTRACT_DIR"
+
+        (
+            cd "$PROTON_PREFIX"
+            "$APPIMAGE_PATH" --appimage-extract >/dev/null
+            mv squashfs-root/* "$EXTRACT_DIR"/
+            rm -rf squashfs-root
+        )
+
+        echo "$CURRENT_HASH" > "$VERSION_FILE"
+        echo "Extraction complete."
+    else
+        echo "AppImage already extracted."
+    fi
+
+    echo "Relaunching from extracted AppRun..."
+    exec "$EXTRACT_DIR/AppRun" "$@"
+fi
+
+INTERNAL_PROTON_BASE="$EXTRACT_DIR/opt/GE-Proton"
 INTERNAL_PROTON_SCRIPT="$INTERNAL_PROTON_BASE/proton"
 
-# 6. Export Environment Variables
 export WINEPREFIX="$PROTON_PREFIX/pfx"
 export STEAM_COMPAT_DATA_PATH="$PROTON_PREFIX"
 export STEAM_COMPAT_CLIENT_INSTALL_PATH="$HERE"
@@ -123,18 +153,19 @@ export PROTON_MEDIA_USE_GST=1
 export SDL_JOYSTICK_HIDAPI=0
 export SDL_HINT_JOYSTICK_HIDAPI=0
 
-export GST_PLUGIN_SYSTEM_PATH_1_0="$HERE/opt/GE-Proton/files/lib/i386-linux-gnu/gstreamer-1.0/:$HERE/opt/GE-Proton/files/lib/x86_64-linux-gnu/gstreamer-1.0/:$HERE/opt/GE-Proton/files/lib/gstreamer-1.0/:$HERE/opt/GE-Proton/files/lib64/gstreamer-1.0/:$HERE/gstreamer-1.0/x86_64/:$HERE/gstreamer-1.0/i386/"
+export GST_PLUGIN_SYSTEM_PATH_1_0="$INTERNAL_PROTON_BASE/files/lib/i386-linux-gnu/gstreamer-1.0/:$INTERNAL_PROTON_BASE/files/lib/x86_64-linux-gnu/gstreamer-1.0/:$INTERNAL_PROTON_BASE/files/lib/gstreamer-1.0/:$INTERNAL_PROTON_BASE/files/lib64/gstreamer-1.0/:$HERE/gstreamer-1.0/x86_64/:$HERE/gstreamer-1.0/i386/"
+
 mkdir -p "$PROTON_PREFIX/gstreamer-1.0/"
 export WINE_GST_REGISTRY_DIR="$PROTON_PREFIX/gstreamer-1.0/"
 
-# Define potential Steam installation roots (Standard, Flatpak, and umu)
+mkdir -p "$PROTON_PREFIX/pfx"
+
 PATHS=(
     "$HOME/.steam/steam/steamapps/common/SteamLinuxRuntime_sniper/"
     "$HOME/.var/app/com.valvesoftware.Steam/.steam/steam/steamapps/common/SteamLinuxRuntime_sniper/"
     "$HOME/.local/share/umu/"
 )
 
-# Find the first path that actually exists
 SLR_ROOT=""
 for path in "${PATHS[@]}"; do
     if [ -d "$path" ]; then
@@ -143,49 +174,30 @@ for path in "${PATHS[@]}"; do
     fi
 done
 
-# Initialize SLR_LIBS
-SLR_LIBS=""
+echo "Launching Proton..."
 
-if [ -n "$SLR_ROOT" ]; then
-    echo "Found Steam Linux Runtime (or equivalent) at: $SLR_ROOT"
-    # Search for i386-linux-gnu folders and extract all unique subdirs containing .so files
-    SL_SEARCH_RESULT=$(find "$SLR_ROOT" -type d -name "i386-linux-gnu" -exec find {} -name "*.so*" -printf '%h\n' \; 2>/dev/null | sort -u | tr '\n' ':')
-    SLR_LIBS="$SL_SEARCH_RESULT"
-else
-    echo "Warning: SteamLinuxRuntime_sniper/umu not found. Using system libraries..."
+if [ -f "$INTERNAL_PROTON_SCRIPT" ]; then
+    if [ -n "$SLR_ROOT" ] && [ -f "$SLR_ROOT/run-in-sniper" ]; then
+        exec "$SLR_ROOT/run-in-sniper" python3 "$INTERNAL_PROTON_SCRIPT" run "$@"
+    else
+        exec python3 "$INTERNAL_PROTON_SCRIPT" run "$@"
+    fi
 fi
 
-export LD_LIBRARY_PATH="$SLR_LIBS$LD_LIBRARY_PATH"
-
-export PROTON_NO_ESYNC=0
-export WINEESYNC=1
-export PROTON_NO_FSYNC=0
-export WINEFSYNC=1
-export WINESYNC=1
-
-# 7. Execution Logic
-if [ ! -d "$PROTON_PREFIX/pfx" ]; then
-    echo "Creating prefix structure at $PROTON_PREFIX/pfx..."
-    mkdir -p "$PROTON_PREFIX/pfx"
-fi
-
-# Use Wine directly or via Python script as before
 WINE_WOW64="$INTERNAL_PROTON_BASE/files/bin-wow64/wine"
 WINE_64="$INTERNAL_PROTON_BASE/files/bin/wine64"
 WINE_STD="$INTERNAL_PROTON_BASE/files/bin/wine"
 
-if [ ! -f "$PROTON_PREFIX/tracked_files" ]; then
-    echo "First run or prefix incomplete. Launching Proton..."
-    if [ -f "$INTERNAL_PROTON_SCRIPT" ]; then
-        python3 "$INTERNAL_PROTON_SCRIPT" run winecfg
-    fi
+if [ -f "$WINE_WOW64" ]; then
+    SELECTED_WINE="$WINE_WOW64"
+elif [ -f "$WINE_64" ]; then
+    SELECTED_WINE="$WINE_64"
+else
+    SELECTED_WINE="$WINE_STD"
 fi
 
-echo "Launching Wine..."
-if [ -f "$WINE_WOW64" ]; then
-    exec "$WINE_WOW64" "$@"
-elif [ -f "$WINE_64" ]; then
-    exec "$WINE_64" "$@"
+if [ -n "$SLR_ROOT" ] && [ -f "$SLR_ROOT/run-in-sniper" ]; then
+    exec "$SLR_ROOT/run-in-sniper" "$SELECTED_WINE" "$@"
 else
-    exec "$WINE_STD" "$@"
+    exec "$SELECTED_WINE" "$@"
 fi
