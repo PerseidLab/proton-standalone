@@ -121,12 +121,8 @@ export PROTON_NO_STEAM=1
 export PROTON_USE_WOW64=1
 export PROTON_MEDIA_USE_GST=1
 export SDL_GAMECONTROLLER_IGNORE_DEVICES="$SDL_GAMECONTROLLER_IGNORE_DEVICES,0x057e/0x2009,0x057e/0x2006,0x057e/0x2007,0x0e6f/0x0180,0x0e6f/0x0184,0x0e6f/0x0185,0x0e6f/0x0188,0x20d6/0xa711,0x20d6/0xa712,0x20d6/0xa713"
-<<<<<<< Updated upstream
-
-=======
 export SDL_GAMECONTROLLER_ALLOW_STEAM_VIRTUAL_GAMEPAD=1
 export SDL_GAMECONTROLLER_USE_BUTTON_LABELS=1
->>>>>>> Stashed changes
 export GST_PLUGIN_SYSTEM_PATH_1_0="$GST_PLUGIN_SYSTEM_PATH_1_0:$HERE/opt/GE-Proton/files/lib/i386-linux-gnu/gstreamer-1.0/:$HERE/opt/GE-Proton/files/lib/x86_64-linux-gnu/gstreamer-1.0/:$HERE/opt/GE-Proton/files/lib/gstreamer-1.0/:$HERE/opt/GE-Proton/files/lib64/gstreamer-1.0/:$HERE/gstreamer-1.0/x86_64/:$HERE/gstreamer-1.0/i386/"
 mkdir -p "$PROTON_PREFIX/gstreamer-1.0/"
 export WINE_GST_REGISTRY_DIR="$PROTON_PREFIX/gstreamer-1.0/"
