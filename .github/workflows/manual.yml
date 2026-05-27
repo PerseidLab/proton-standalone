@@ -36,7 +36,9 @@ jobs:
       - name: Fetch and Extract GE-Proton
         run: |
           mkdir -p AppDir/opt/GE-Proton
-          wget -qO- "${{ env.DOWNLOAD_URL }}" | tar -xf - -C AppDir/opt/GE-Proton --strip-components=1
+          wget -qO archive.tar "${{ env.DOWNLOAD_URL }}"
+          tar -xf archive.tar -C AppDir/opt/GE-Proton --strip-components=1
+          rm archive.tar
 
       - name: Build AppImage
         run: |
