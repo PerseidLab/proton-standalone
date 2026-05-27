@@ -56,7 +56,9 @@ jobs:
         if: steps.check_version.outputs.skip != 'true'
         run: |
           mkdir -p AppDir/opt/GE-Proton
-          wget -qO- "${{ env.DOWNLOAD_URL }}" | tar -xz -C AppDir/opt/GE-Proton --strip-components=1
+          wget -qO archive.tar "${{ env.DOWNLOAD_URL }}"
+          tar -xf archive.tar -C AppDir/opt/GE-Proton --strip-components=1
+          rm archive.tar
 
       - name: Build AppImage
         if: steps.check_version.outputs.skip != 'true'
