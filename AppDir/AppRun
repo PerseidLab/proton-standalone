@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# 1. Define Paths immediately (needed for --install/--uninstall)
+# Paths 
 HERE="$(dirname "$(readlink -f "${0}")")"
 APPIMAGE_PATH="${APPIMAGE:-$(readlink -f "$0")}"
 APPIMAGE_DIR="$(dirname "$APPIMAGE_PATH")"
 APPS_DIR="$HOME/.local/share/applications"
 
-# --- 2. Installation / Uninstallation Logic ---
+# Installation / Uninstallation Logic
 if [[ "$1" == "--install" ]]; then
     mkdir -p "$APPS_DIR"
     echo "Installing desktop shortcuts and MIME types..."
@@ -89,12 +89,12 @@ elif [[ "$1" == "--uninstall" ]]; then
     exit 0
 fi
 
-# --- 3. Default Argument Logic ---
+# Default Argument Logic
 if [ -z "$1" ]; then
     set -- "explorer"
 fi
 
-# --- NEW: Path Resolution Logic ---
+# Path Resolution Logic
 # If the first argument is a file (or a link to a file), resolve its real path.
 if [ -f "$1" ]; then
     REAL_PATH=$(readlink -f "$1")
@@ -104,14 +104,14 @@ if [ -f "$1" ]; then
     echo "Resolved shortcut/link to: $REAL_PATH"
 fi
 
-# 4. Define Prefix Path
+# Prefix Path
 PROTON_PREFIX="$APPIMAGE_DIR/protonprefix"
 
-# 5. Internal Paths
+# Internal Paths
 INTERNAL_PROTON_BASE="$HERE/opt/GE-Proton"
 INTERNAL_PROTON_SCRIPT="$INTERNAL_PROTON_BASE/proton"
 
-# 6. Export Environment Variables
+# Export Environment Variables
 export WINEPREFIX="$PROTON_PREFIX/pfx"
 export STEAM_COMPAT_DATA_PATH="$PROTON_PREFIX"
 export STEAM_COMPAT_CLIENT_INSTALL_PATH="$HERE"
@@ -131,7 +131,7 @@ export WINE_GST_REGISTRY_DIR="$PROTON_PREFIX/gstreamer-1.0/"
 PATHS=(
     "$HOME/.steam/steam/steamapps/common/SteamLinuxRuntime_sniper/"
     "$HOME/.var/app/com.valvesoftware.Steam/.steam/steam/steamapps/common/SteamLinuxRuntime_sniper/"
-    "$HOME/.local/share/umu/"
+    "$HOME/.local/share/umu/steamrt3/"
 )
 
 # Find the first path that actually exists
@@ -163,13 +163,13 @@ export PROTON_NO_FSYNC=0
 export WINEFSYNC=1
 export WINESYNC=1
 
-# 7. Execution Logic
+# Execution Logic
 if [ ! -d "$PROTON_PREFIX/pfx" ]; then
     echo "Creating prefix structure at $PROTON_PREFIX/pfx..."
     mkdir -p "$PROTON_PREFIX/pfx"
 fi
 
-# Use Wine directly or via Python script as before
+# Wine binary path
 WINE_WOW64="$INTERNAL_PROTON_BASE/files/bin-wow64/wine"
 WINE_64="$INTERNAL_PROTON_BASE/files/bin/wine64"
 WINE_STD="$INTERNAL_PROTON_BASE/files/bin/wine"
