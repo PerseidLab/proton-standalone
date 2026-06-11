@@ -26,7 +26,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 1. Get the latest release tag from GloriousEggroll
+          # Get the latest release tag from GloriousEggroll
           GE_RELEASE_JSON=$(gh api repos/GloriousEggroll/proton-ge-custom/releases/latest)
           GE_VERSION=$(echo "$GE_RELEASE_JSON" | jq -r '.tag_name')
 
@@ -36,7 +36,7 @@ jobs:
             exit 0
           fi
 
-          # 2. Check if this specific tag already exists in YOUR repository
+          # Check if this specific tag already exists in YOUR repository
           # We check the git ref directly; if it returns 404, the tag is new to us.
           if gh api repos/${{ github.repository }}/git/ref/tags/$GE_VERSION --silent > /dev/null 2>&1; then
             echo "Tag $GE_VERSION already exists in this repo. Skipping build."
