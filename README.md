@@ -1,14 +1,14 @@
 
-A portable, standalone version of GE-Proton packaged as an AppImage. This version includes built-in system integration for running Windows applications directly from your file manager.
+A portable, standalone version of Proton packaged as an AppImage. This version includes built-in system integration for running Windows applications directly from your file manager.
 
 ## **Key Features**  
 - Portable Runner: Run explorer.exe or any Windows binary by default.
-- System Integration: Register GE-Proton as a handler for .exe and .msi files.
+- System Integration: Register Proton as a handler for .exe and .msi files.
 - Simple Management: Easy install/uninstall flags for desktop integration.
 
 ## **Usage**  
 **Standard Launch**  
-By default, running the AppImage will launch the Wine file explorer within the GE-Proton environment:  
+By default, running the AppImage will launch the Wine file explorer within the Proton environment:  
 ``./ge-proton-*-standalone.AppImage``  
 
 **Running Specific Files**  
@@ -19,7 +19,7 @@ You can pass any Windows executable as an argument:
 This AppImage can integrate itself into your Linux desktop environment, allowing you to right-click any .exe and select "Open with Proton AppImage Launcher."  
 
 **Install Integration**    
-To add GE-Proton standalone AppImage to your system's MIME types and application menu:  
+To add Proton standalone AppImage to your system's MIME types and application menu:  
 ``./ge-proton-*-standalone.AppImage --install``  
 This creates a desktop entry and associates .exe and .msi files with this AppImage.  
 
