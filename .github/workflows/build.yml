@@ -47,7 +47,7 @@ jobs:
             echo "GE_VERSION=$GE_VERSION" >> $GITHUB_ENV
             
             # Extract the download URL for the .tar.gz asset from the GE release
-            DOWNLOAD_URL=$(echo "$GE_RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url')
+            DOWNLOAD_URL=$(echo "$GE_RELEASE_JSON" | jq -r '.assets[] | select((.name | endswith(".tar.gz")) and (.name | contains("aarch64") | not)) | .browser_download_url')
             echo "DOWNLOAD_URL=$DOWNLOAD_URL" >> $GITHUB_ENV
             echo "FINAL_NAME=${GE_VERSION}-standalone.AppImage" >> $GITHUB_ENV
           fi
